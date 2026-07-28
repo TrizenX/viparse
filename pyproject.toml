@@ -24,7 +24,19 @@ ocr = ["pytesseract>=0.3,<0.4", "pdf2image>=1.17,<2", "pillow>=10,<13"]
 langchain = ["langchain-core>=0.3,<2"]
 llamaindex = ["llama-index-core>=0.11,<1"]
 all = ["viparse[office,pdf,rtf,ocr,langchain,llamaindex]"]
-dev = ["ruff", "mypy", "pytest", "pytest-cov", "build", "reportlab>=4,<6", "cyclonedx-bom"]
+# ruff is capped to a minor series on purpose: it is pre-1.0 and a minor bump can widen
+# what `format` touches. 0.16 started formatting Python blocks inside Markdown, which turned
+# `quality` red on every open PR until README.md was reflowed. A cap makes that a deliberate
+# upgrade instead of a surprise on an unrelated PR.
+dev = [
+    "ruff>=0.16,<0.17",
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "build",
+    "reportlab>=4,<6",
+    "cyclonedx-bom",
+]
 
 [project.scripts]
 viparse = "viparse.cli:main"
