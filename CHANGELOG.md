@@ -6,6 +6,27 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.6] — 2026-07-28
+
+Documentation and tooling only — `src/` is byte-identical to 0.1.5, so upgrading changes
+no behaviour. It is cut so PyPI, which renders the README as the project page, stops
+serving incomplete install instructions.
+
+### Fixed
+
+- The installation section omitted the `rtf`, `langchain` and `llamaindex` extras and never
+  stated the Python floor, so anyone reading the PyPI page could not discover three of the
+  seven extras and had no version requirement to check against (VIP-77).
+
+### Changed
+
+- The README now documents the `route → extract → normalize → structure` pipeline, how
+  encoding detection picks a charmap, and where viparse sits next to general-purpose
+  loaders. It links the project website at https://viparse.trizenx.com (VIP-77).
+- `ruff` and `mypy` are capped to a minor series. Both gate CI, and an unpinned release of
+  either turns `quality` red on unrelated work — ruff 0.16 did exactly that and blocked
+  every open PR for three days (VIP-78, VIP-79).
+
 ## [0.1.5] — 2026-07-19
 
 ### Added
@@ -112,7 +133,11 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/minhtridinh-kayden/viparse/compare/v0.1.2...HEAD
-[0.1.2]: https://github.com/minhtridinh-kayden/viparse/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/minhtridinh-kayden/viparse/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/minhtridinh-kayden/viparse/releases/tag/v0.1.0
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.6...HEAD
+[0.1.6]: https://github.com/TrizenX/viparse/compare/v0.1.5...v0.1.6
+[0.1.5]: https://github.com/TrizenX/viparse/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/TrizenX/viparse/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/TrizenX/viparse/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/TrizenX/viparse/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/TrizenX/viparse/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/TrizenX/viparse/releases/tag/v0.1.0
