@@ -24,13 +24,15 @@ ocr = ["pytesseract>=0.3,<0.4", "pdf2image>=1.17,<2", "pillow>=10,<13"]
 langchain = ["langchain-core>=0.3,<2"]
 llamaindex = ["llama-index-core>=0.11,<1"]
 all = ["viparse[office,pdf,rtf,ocr,langchain,llamaindex]"]
-# ruff is capped to a minor series on purpose: it is pre-1.0 and a minor bump can widen
-# what `format` touches. 0.16 started formatting Python blocks inside Markdown, which turned
-# `quality` red on every open PR until README.md was reflowed. A cap makes that a deliberate
-# upgrade instead of a surprise on an unrelated PR.
+# The two gatekeepers are capped to a single minor series on purpose. Both decide whether CI
+# passes, so a new release lands as a red build on whatever unrelated PR is open at the time:
+# ruff 0.16 began formatting Python blocks inside Markdown and turned `quality` red until
+# README.md was reflowed. For a linter and a type checker the breaking unit is the *minor*
+# release, not the major — hence a tighter cap than the runtime extras above. Dependabot
+# raises these weekly, so the upgrade and the fixes it needs land in one reviewed PR.
 dev = [
     "ruff>=0.16,<0.17",
-    "mypy",
+    "mypy>=2.3,<2.4",
     "pytest",
     "pytest-cov",
     "build",
