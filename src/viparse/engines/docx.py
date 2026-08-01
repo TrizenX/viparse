@@ -71,6 +71,16 @@ class DocxEngine:
                 if table_fonts:
                     table_block["fonts"] = sorted(table_fonts)
                 blocks.append(table_block)
+        for paragraph in _note_paragraphs(document):
+            note_fonts: set[str] = set()
+            _collect_fonts(paragraph, note_fonts)
+            fonts.update(note_fonts)
+            block = _paragraph_block(paragraph)
+            if block is not None:
+                if note_fonts:
+                    block["fonts"] = sorted(note_fonts)
+                blocks.append(block)
+
         signals: dict[str, Any] = {"fonts": sorted(fonts), "blocks": blocks}
         return RawExtraction(
             source=str(source),
@@ -79,6 +89,49 @@ class DocxEngine:
             engine="docx",
             signals=signals,
         )
+
+
+# Footnotes and endnotes live in their own OOXML parts, so nothing that walks the body
+# reaches them. On one real document that was 1,062 characters of citations — the whole
+# bibliography — missing without a warning.
+_NOTE_PARTS = ("footnotes.xml", "endnotes.xml")
+
+# Word puts two housekeeping notes at the top of each part: the rule drawn above the
+# notes, and the one drawn when they continue onto the next page. They carry no text of
+# the author's and must not be emitted as blocks.
+_NOTE_SEPARATORS = ("separator", "continuationSeparator")
+
+
+def _note_paragraphs(document: Any) -> Iterator[Any]:
+    """Footnote and endnote paragraphs, after the body.
+
+    Placed at the end rather than inlined at the reference point. That is where Word
+    itself keeps them — in the ``.doc`` this corpus was built from, the footnote text
+    follows the closing ``./.`` of the body — and it is where a reader finds them.
+    Splicing a citation into the middle of the sentence that cites it would corrupt
+    exactly the sentence boundaries downstream chunking depends on.
+    """
+    from docx.oxml import parse_xml
+    from docx.oxml.ns import qn
+    from docx.text.paragraph import Paragraph
+
+    type_attr, p_tag = qn("w:type"), qn("w:p")
+    for part in document.part.package.iter_parts():
+        if not str(part.partname).endswith(_NOTE_PARTS):
+            continue
+        # These arrive as generic parts with only a blob — no `.element`. Parsing through
+        # python-docx's own parser rather than plain lxml is what makes the `w:p` elements
+        # come back as `CT_P`, so `Paragraph` can wrap them and every downstream helper
+        # (runs, fonts, styles) works unchanged.
+        try:
+            root = parse_xml(part.blob)
+        except Exception:  # noqa: BLE001 - a malformed notes part must not kill extraction
+            continue
+        for note in root:
+            if note.get(type_attr) in _NOTE_SEPARATORS:
+                continue
+            for child in note.iterchildren(p_tag):
+                yield Paragraph(child, document)
 
 
 def _iter_block_items(document: Any) -> Iterator[tuple[str, Any]]:

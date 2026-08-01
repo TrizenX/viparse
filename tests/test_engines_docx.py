@@ -407,3 +407,108 @@ def test_hyperlink_wrapped_run_is_extracted(tmp_path: Path) -> None:
     document.save(str(source))
 
     assert "see the site" in DocxEngine().extract(source, LoadOptions()).text
+
+
+# --- Footnotes: their own OOXML part, reached by nothing that walks the body (VIP-98) --
+
+_FOOTNOTES_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:footnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:t>SEPARATOR</w:t></w:r></w:p></w:footnote>
+  <w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:r><w:t>CONT</w:t></w:r>
+  </w:p></w:footnote>
+  <w:footnote w:id="1"><w:p><w:r><w:t>Rawski, The China Journal</w:t></w:r></w:p></w:footnote>
+</w:footnotes>"""
+
+_FOOTNOTES_REL = (
+    '<Relationship Id="rIdNotes" Type="http://schemas.openxmlformats.org/'
+    'officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>'
+)
+_FOOTNOTES_TYPE = (
+    '<Override PartName="/word/footnotes.xml" ContentType="application/vnd.'
+    'openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>'
+)
+
+
+def _add_footnotes_part(source: Path, target: Path) -> None:
+    """Rewrite a .docx with a footnotes part attached.
+
+    python-docx has no footnote API, so the part, its content-type override and its
+    relationship are written into the package by hand — which is also how a real
+    document carries them.
+    """
+    import shutil
+    import zipfile
+
+    with zipfile.ZipFile(source) as original:
+        names = original.namelist()
+        payload = {name: original.read(name) for name in names}
+
+    payload["word/footnotes.xml"] = _FOOTNOTES_XML.encode("utf-8")
+    payload["[Content_Types].xml"] = payload["[Content_Types].xml"].replace(
+        b"</Types>", _FOOTNOTES_TYPE.encode("utf-8") + b"</Types>"
+    )
+    payload["word/_rels/document.xml.rels"] = payload["word/_rels/document.xml.rels"].replace(
+        b"</Relationships>", _FOOTNOTES_REL.encode("utf-8") + b"</Relationships>"
+    )
+
+    shutil.rmtree(target, ignore_errors=True)
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as rebuilt:
+        for name, data in payload.items():
+            rebuilt.writestr(name, data)
+
+
+def test_footnote_text_is_extracted(tmp_path: Path) -> None:
+    """Footnotes are a separate part, so nothing that walks the body reaches them.
+
+    On one real document that was 1,062 characters — the entire bibliography — missing
+    with no warning.
+    """
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    document.add_paragraph("body text")
+    plain = tmp_path / "plain.docx"
+    document.save(str(plain))
+    source = tmp_path / "with_footnotes.docx"
+    _add_footnotes_part(plain, source)
+
+    text = DocxEngine().extract(source, LoadOptions()).text
+    assert "Rawski, The China Journal" in text
+
+
+def test_footnote_text_comes_after_the_body(tmp_path: Path) -> None:
+    """Placed at the end, not spliced into the sentence that cites them.
+
+    That is where Word keeps them — in the source ``.doc`` the footnote text follows the
+    closing ``./.`` — and inlining a citation mid-sentence would break exactly the
+    sentence boundaries downstream chunking depends on.
+    """
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    document.add_paragraph("body text")
+    plain = tmp_path / "plain_order.docx"
+    document.save(str(plain))
+    source = tmp_path / "order.docx"
+    _add_footnotes_part(plain, source)
+
+    text = DocxEngine().extract(source, LoadOptions()).text
+    assert text.index("body text") < text.index("Rawski")
+
+
+def test_footnote_separators_are_not_emitted(tmp_path: Path) -> None:
+    """Word puts two housekeeping notes in every footnotes part.
+
+    They are the rules drawn above the notes and above their continuation, carry no text
+    of the author's, and would otherwise appear as blocks in every document that has a
+    single footnote.
+    """
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    document.add_paragraph("body text")
+    plain = tmp_path / "plain_sep.docx"
+    document.save(str(plain))
+    source = tmp_path / "separators.docx"
+    _add_footnotes_part(plain, source)
+
+    text = DocxEngine().extract(source, LoadOptions()).text
+    assert "SEPARATOR" not in text
+    assert "CONT" not in text
