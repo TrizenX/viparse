@@ -48,5 +48,6 @@ Tasks involving real code/logic also get a `/code-review` pass before the commit
 
 ## Accounts
 
-- GitHub repo: `minhtridinh-kayden/viparse` (TrizenX projects use the `minhtridinh-kayden` account).
+- GitHub repo: `TrizenX/viparse` (owned by the TrizenX org; the old
+  `minhtridinh-kayden/viparse` URL still redirects).
 - Linear team: `viparse` (key `VIP`).

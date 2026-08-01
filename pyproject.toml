@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "minhtridinh" }]
+authors = [{ name = "minhtridinh", email = "hello@trizenx.com" }]
 keywords = ["vietnamese", "rag", "document", "parser", "tcvn3", "vni", "nfc"]
 dependencies = []
 
@@ -44,9 +44,10 @@ dev = [
 viparse = "viparse.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/minhtridinh-kayden/viparse"
-Repository = "https://github.com/minhtridinh-kayden/viparse"
-Changelog = "https://github.com/minhtridinh-kayden/viparse/blob/main/CHANGELOG.md"
+Homepage = "https://viparse.trizenx.com"
+Repository = "https://github.com/TrizenX/viparse"
+Changelog = "https://github.com/TrizenX/viparse/blob/main/CHANGELOG.md"
+Issues = "https://github.com/TrizenX/viparse/issues"
 
 [tool.hatch.version]
 path = "src/viparse/__init__.py"
