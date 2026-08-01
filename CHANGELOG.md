@@ -6,6 +6,25 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.9] — 2026-08-01
+
+### Fixed
+
+- **Every `ư` was deleted from legacy `.doc` files.** 848 of 848 occurrences across ten
+  real Vietnamese government documents — `được`, `người`, `trường`, `nước` all came back
+  a letter short, with nothing logged.
+
+  A `.doc` stores `0xAD`, which TCVN3 reads as `ư`. Converting to `.docx` encodes a soft
+  hyphen as the element `<w:softHyphen/>` rather than a character, and `python-docx`
+  concatenates only text nodes — so the letter was gone before the encoding table saw
+  it. Table cells were a second path to the same loss (VIP-87).
+
+  **Re-run any corpus parsed with 0.1.8 or earlier.** The loss was silent, and `ư` is one
+  of the most common letters in Vietnamese.
+
+End-to-end diacritic accuracy against hand-written transcripts of that corpus: **0.949 →
+0.999**.
+
 ## [0.1.8] — 2026-08-01
 
 The first release since 0.1.5 to change behaviour rather than metadata.
@@ -183,7 +202,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/TrizenX/viparse/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/TrizenX/viparse/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/TrizenX/viparse/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/TrizenX/viparse/compare/v0.1.5...v0.1.6
