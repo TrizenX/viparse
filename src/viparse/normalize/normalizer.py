@@ -143,20 +143,77 @@ def _usable_runs(block: dict[str, Any]) -> list[dict[str, Any]] | None:
     return runs
 
 
-def _plan_block(block: dict[str, Any], doc: EncodingDetection) -> _BlockPlan:
-    """Detect a block at run granularity when it has usable runs, else at block level."""
+# Font-detection outcomes meaning "this name told me nothing", as opposed to "this name
+# tells me the text is Unicode". There is no such thing as the latter: a font outside the
+# known patterns is an absence of evidence, not evidence of absence.
+_NO_FONT_EVIDENCE = ("no-legacy-font", "assumed-unicode")
+
+# Below this many characters, content detection is guessing. Measured on a real
+# mixed-encoding document: at block level it agreed with a hand-built classifier on 93.6%
+# of characters, but the median *run* there is 51 characters and 22% are under 20, and
+# per-run detection turned `MôC LôC` (TCVN3) into `MơC LơC` by reading it as VNI.
+_MIN_CONTENT_CHARS = 24
+
+
+def _content_encoding(text: str, form: NormalizeForm) -> str | None:
+    """Read a block's own bytes when its font name says nothing.
+
+    A legacy font whose name is outside the known patterns is common: one Lâm Đồng
+    planning document carries 174,646 characters under ``VNSTCVN3``, a real TCVN3-era
+    font matching none of ``.Vn*``, ``VNI-*``, ``VPS*`` or ``ABC*``. Treating that as "no
+    legacy encoding" left 93% of the document unconverted.
+
+    Extending the font patterns would not have fixed it and would have made it worse:
+    109,211 of those characters are **VNI**, not TCVN3. The document was assembled from
+    sections typed on different machines and the font was applied across all of them, so
+    the name is actively wrong for most of what it covers. The bytes are the only honest
+    evidence.
+    """
+    if len(text) < _MIN_CONTENT_CHARS:
+        return None
+    detection = detect_encoding_by_content(
+        clean_text(text, form, preserve=control_chars_in(AUTO_DETECT_CHARMAPS)),
+        AUTO_DETECT_CHARMAPS,
+    )
+    return detection.encoding
+
+
+def _plan_block(
+    block: dict[str, Any],
+    doc: EncodingDetection,
+    form: NormalizeForm | None = None,
+    carried: str | None = None,
+) -> _BlockPlan:
+    """Detect a block at run granularity when it has usable runs, else at block level.
+
+    ``form`` enables the content fallback, and is passed only in ``encoding="auto"``
+    mode where the caller has asserted the source is legacy Vietnamese. ``carried`` is
+    the previous block's resolved encoding: an encoding change happens at a section
+    boundary, so for a block with neither font nor enough text the nearest decided
+    neighbour is better evidence than a whole-document majority.
+    """
+    fallback = doc.encoding
+    if form is not None:
+        # Detected once per block, not per run — see _MIN_CONTENT_CHARS.
+        fallback = _content_encoding(block.get("text", ""), form) or carried or doc.encoding
     runs = _usable_runs(block)
     if runs is not None:
         # A run carries at most one font, so its detection is never ``font-signal-mixed``.
         run_dets = [detect_encoding([r["font"]]) if r.get("font") else None for r in runs]
-        run_encs = [d.encoding if d is not None else doc.encoding for d in run_dets]
+        if form is not None:
+            run_dets = [
+                None if d is not None and d.method in _NO_FONT_EVIDENCE else d for d in run_dets
+            ]
+        run_encs = [d.encoding if d is not None else fallback for d in run_dets]
         segments = [
             (enc, d.confidence if d is not None else doc.confidence, d is not None)
             for enc, d in zip(run_encs, run_dets, strict=True)
-        ]
+        ]  # noqa: E501
         return _BlockPlan(block, run_encs, None, segments, font_signal_mixed=False)
     det = detect_encoding(block["fonts"] or []) if "fonts" in block else None
-    enc = det.encoding if det is not None else doc.encoding
+    if form is not None and (det is None or det.method in _NO_FONT_EVIDENCE):
+        det = None
+    enc = det.encoding if det is not None else fallback
     confidence = det.confidence if det is not None else doc.confidence
     mixed = det is not None and det.method == "font-signal-mixed"
     segment: _Segment = (enc, confidence, det is not None)
@@ -255,7 +312,20 @@ class VietnameseNormalizer:
 
             # Per-block path: only when the engine tagged blocks with their own fonts and
             # those blocks resolve to different encodings (a real mixed-encoding document).
-            per_block = self._normalize_mixed_blocks(raw_blocks, detection, form, warnings)
+            per_block = self._normalize_mixed_blocks(
+                raw_blocks,
+                detection,
+                form,
+                warnings,
+                # Two conditions, and both are needed. The caller must have opted into
+                # content detection, *and* the document must already carry a legacy font
+                # signal somewhere. Without the second, a Spanish document whose font
+                # name happens to be unrecognised would be read by content and corrupted
+                # — `Señor` → `Seđor`. An unknown font protected it before this change,
+                # and it still does: the fallback only reaches inside a document already
+                # known to be legacy Vietnamese.
+                content_fallback=(override == _AUTO_ENCODING and detection.encoding is not None),
+            )
             if per_block is not None:
                 blocks, text, encoding, confidence = per_block
                 self._warn_low_confidence(confidence, warnings)
@@ -286,6 +356,7 @@ class VietnameseNormalizer:
         doc_detection: EncodingDetection,
         form: NormalizeForm,
         warnings: list[str],
+        content_fallback: bool = False,
     ) -> tuple[list[Block], str, str | None, float] | None:
         """Convert each segment by its own font signal, or ``None`` if not a mixed document.
 
@@ -294,10 +365,19 @@ class VietnameseNormalizer:
         same encoding the document is not mixed and this returns ``None`` so the caller's
         whole-document path (identical output for single-encoding files) runs instead.
         """
-        if not any(("fonts" in b or "runs" in b) for b in raw_blocks):
+        if not content_fallback and not any(("fonts" in b or "runs" in b) for b in raw_blocks):
             return None
 
-        plans = [_plan_block(b, doc_detection) for b in raw_blocks]
+        plans = []
+        carried: str | None = None
+        for raw_block in raw_blocks:
+            plan = _plan_block(
+                raw_block, doc_detection, form if content_fallback else None, carried
+            )
+            resolved = [enc for enc, _, _ in plan.segments if enc is not None]
+            if resolved:
+                carried = resolved[-1]
+            plans.append(plan)
         segments = [seg for plan in plans for seg in plan.segments]
         if len({enc for enc, _, _ in segments}) <= 1:
             return None  # every segment agrees → not mixed; whole-document path handles it

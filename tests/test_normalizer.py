@@ -547,3 +547,110 @@ def test_nfc_nfd_roundtrip_for_all_accented_vowels(char: str) -> None:
     nd = VietnameseNormalizer().normalize(_raw(nfd, ["Arial"]), LoadOptions())
     assert nd.text == char
     assert unicodedata.is_normalized("NFC", nd.text)
+
+
+# --- Content fallback for runs whose font name says nothing (VIP-96) -------------------
+
+_VNI_LINE = "Caùc heä thoâng tin taïi caùc Sôû, Ban, Ngaønh vaø caùc Huyeän"
+_VNI_READ = "Các hệ thông tin tại các Sở, Ban, Ngành và các Huyện"
+_TCVN3_LINE = "C¸c hÖ thèng th«ng tin t¹i c¸c Së, Ban, Ngµnh vµ c¸c HuyÖn"
+_TCVN3_READ = "Các hệ thống thông tin tại các Sở, Ban, Ngành và các Huyện"
+
+
+def _two_block_raw(fonts: list[str], block_font: str) -> RawExtraction:
+    """One TCVN3 block with an honest font, one VNI block whose font name lies."""
+    blocks = [
+        {
+            "type": "paragraph",
+            "text": _TCVN3_LINE,
+            "runs": [{"text": _TCVN3_LINE, "font": ".VnTime"}],
+        },
+        {
+            "type": "paragraph",
+            "text": _VNI_LINE,
+            "runs": [{"text": _VNI_LINE, "font": block_font}],
+        },
+    ]
+    return RawExtraction(
+        source="a.docx",
+        content_type="application/vnd.docx",
+        text=f"{_TCVN3_LINE}\n{_VNI_LINE}",
+        engine="docx",
+        signals={"fonts": fonts, "blocks": blocks},
+    )
+
+
+def test_auto_reads_a_block_whose_font_name_is_unrecognised() -> None:
+    """An unknown font name is an absence of evidence, not evidence of Unicode.
+
+    A Lâm Đồng planning document carries 174,646 characters under ``VNSTCVN3``, a real
+    TCVN3-era font matching none of the known patterns. Treating that as "no legacy
+    encoding" left 93% of it unconverted, at 0.084 diacritic accuracy.
+    """
+    raw = _two_block_raw([".VnTime", "VNSTCVN3"], "VNSTCVN3")
+    nd = VietnameseNormalizer().normalize(raw, LoadOptions(encoding="auto"))
+    assert nd.text.split("\n") == [_TCVN3_READ, _VNI_READ]
+
+
+def test_unrecognised_font_still_protects_non_vietnamese_text() -> None:
+    """The fallback must not reach a document with no legacy font signal at all.
+
+    Otherwise Spanish under an unrecognised font gets read by content and corrupted —
+    ``Señor`` → ``Seđor``. Before VIP-96 the unknown font protected it; the fallback is
+    gated on a document-level legacy signal so that it still does.
+    """
+    spanish = "Señor Muñoz vivía en la mañana con niños pequeños en España"
+    blocks = [
+        {
+            "type": "paragraph",
+            "text": spanish,
+            "runs": [{"text": spanish, "font": "VNSTCVN3"}],
+        }
+    ]
+    raw = RawExtraction(
+        source="a.docx",
+        content_type="application/vnd.docx",
+        text=spanish,
+        engine="docx",
+        signals={"fonts": ["VNSTCVN3"], "blocks": blocks},
+    )
+    assert VietnameseNormalizer().normalize(raw, LoadOptions(encoding="auto")).text == spanish
+
+
+def test_default_mode_does_not_use_the_content_fallback() -> None:
+    """Opt-in only: without ``encoding="auto"`` the unknown-font block stays raw."""
+    raw = _two_block_raw([".VnTime", "VNSTCVN3"], "VNSTCVN3")
+    nd = VietnameseNormalizer().normalize(raw, LoadOptions())
+    assert _VNI_LINE in nd.text
+
+
+def test_content_fallback_ignores_blocks_too_short_to_judge() -> None:
+    """Short blocks inherit rather than guess.
+
+    Per-run detection read ``MôC LôC`` (TCVN3, 7 characters) as VNI and produced
+    ``MơC LơC``. Detection now runs per block and only above a length floor; below it a
+    block takes the previous block's verdict, because an encoding change happens at a
+    section boundary rather than mid-heading.
+    """
+    blocks = [
+        {
+            "type": "paragraph",
+            "text": _VNI_LINE,
+            "runs": [{"text": _VNI_LINE, "font": "VNSTCVN3"}],
+        },
+        {"type": "paragraph", "text": "Muïc", "runs": [{"text": "Muïc", "font": "VNSTCVN3"}]},
+        {
+            "type": "paragraph",
+            "text": _TCVN3_LINE,
+            "runs": [{"text": _TCVN3_LINE, "font": ".VnTime"}],
+        },
+    ]
+    raw = RawExtraction(
+        source="a.docx",
+        content_type="application/vnd.docx",
+        text=f"{_VNI_LINE}\nMuïc\n{_TCVN3_LINE}",
+        engine="docx",
+        signals={"fonts": [".VnTime", "VNSTCVN3"], "blocks": blocks},
+    )
+    nd = VietnameseNormalizer().normalize(raw, LoadOptions(encoding="auto"))
+    assert nd.text.split("\n") == [_VNI_READ, "Mục", _TCVN3_READ]
