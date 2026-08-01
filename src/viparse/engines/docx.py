@@ -145,6 +145,67 @@ def _run_font(run: Any, paragraph: Any) -> str | None:
     return _style_font(run.style) or _style_font(paragraph.style)
 
 
+# OOXML encodes a soft hyphen as an *element*, ``<w:softHyphen/>``, not as U+00AD in a
+# ``<w:t>``. python-docx's ``run.text`` concatenates only text nodes, tabs and breaks, so
+# the character disappears.
+#
+# For most documents that loses a typographic hint. For TCVN3 it loses a letter: 0xAD is
+# ``ư``, so a legacy .doc routed through LibreOffice's docx conversion came back with every
+# ``ư`` gone — được, người, trường, nước all silently missing a character. Measured on ten
+# real government documents: 848 of 848 occurrences lost.
+_SOFT_HYPHEN = "\u00ad"
+
+
+def _run_text(run: Any) -> str:
+    """``run.text``, but keeping the soft hyphen.
+
+    Mirrors python-docx's own mapping (``w:t`` → text, ``w:tab`` → tab, ``w:br``/``w:cr``
+    → newline) and adds ``w:softHyphen`` → U+00AD.
+    """
+    from docx.oxml.ns import qn
+
+    t_tag, tab_tag, br_tag, cr_tag, shy_tag = (
+        qn("w:t"),
+        qn("w:tab"),
+        qn("w:br"),
+        qn("w:cr"),
+        qn("w:softHyphen"),
+    )
+    parts: list[str] = []
+    for node in run._element.iter():
+        if node.tag == t_tag:
+            parts.append(node.text or "")
+        elif node.tag == tab_tag:
+            parts.append("\t")
+        elif node.tag in (br_tag, cr_tag):
+            parts.append("\n")
+        elif node.tag == shy_tag:
+            parts.append(_SOFT_HYPHEN)
+    return "".join(parts)
+
+
+def _paragraph_text(paragraph: Any) -> str:
+    """``paragraph.text`` built from :func:`_run_text`.
+
+    python-docx defines paragraph text as the concatenation of its run texts, so building
+    it the same way keeps the block text and the run segments in step. Fixing only one of
+    them would shift the run boundaries the normalizer relies on for per-run font
+    detection.
+    """
+    return "".join(_run_text(run) for run in paragraph.runs)
+
+
+def _cell_text(cell: Any) -> str:
+    """``cell.text`` built from :func:`_paragraph_text`.
+
+    Table cells are a second path to the same loss: python-docx joins paragraph texts
+    here too, so fixing only the paragraph path left 23 of 848 soft hyphens missing —
+    the ones inside tables, which is where Vietnamese administrative forms put most of
+    their content.
+    """
+    return "\n".join(_paragraph_text(paragraph) for paragraph in cell.paragraphs)
+
+
 def _paragraph_runs(paragraph: Any) -> list[dict[str, Any]]:
     """Per-run ``{text, font}`` segments whose texts concatenate back to ``paragraph.text``.
 
@@ -152,13 +213,15 @@ def _paragraph_runs(paragraph: Any) -> list[dict[str, Any]]:
     list faithful so the normalizer can trust it for per-run conversion.
     """
     return [
-        {"text": run.text, "font": _run_font(run, paragraph)} for run in paragraph.runs if run.text
+        {"text": text, "font": _run_font(run, paragraph)}
+        for run, text in ((run, _run_text(run)) for run in paragraph.runs)
+        if text
     ]
 
 
 def _paragraph_block(paragraph: Any) -> dict[str, Any] | None:
     """Map a paragraph to a heading/paragraph block, or ``None`` if empty."""
-    text = paragraph.text
+    text = _paragraph_text(paragraph)
     style = paragraph.style.name if paragraph.style is not None else ""
     if style.startswith("Heading"):
         block: dict[str, Any] = {"type": "heading", "level": _heading_level(style), "text": text}
@@ -198,6 +261,6 @@ def _table_block(table: Any) -> tuple[list[list[str]], set[str]]:
             if cell._tc is previous_tc:
                 continue  # part of a horizontal merge already captured
             previous_tc = cell._tc
-            cells.append(cell.text)
+            cells.append(_cell_text(cell))
         rows.append(cells)
     return rows, fonts

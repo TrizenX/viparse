@@ -265,3 +265,56 @@ def test_missing_dependency_raises_clear_error(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setitem(sys.modules, "docx", None)
     with pytest.raises(MissingDependency, match=r"viparse\[office\]"):
         DocxEngine().extract("missing.docx", LoadOptions())
+
+
+# --- Soft hyphen: a letter in TCVN3, not decoration (VIP-87) ---------------------------
+
+
+def _append_soft_hyphen(run: object) -> None:
+    """Append ``<w:softHyphen/>`` to a run.
+
+    Written through the XML rather than by typing U+00AD into the text, because Word and
+    LibreOffice both store the character as an element and never as a text node. A
+    fixture built the convenient way would contain a literal U+00AD, survive extraction
+    with or without the fix, and prove nothing.
+    """
+    from docx.oxml.ns import qn
+
+    element = run._element  # type: ignore[attr-defined]
+    element.append(element.makeelement(qn("w:softHyphen"), {}))
+
+
+def test_soft_hyphen_survives_paragraph_extraction(tmp_path: Path) -> None:
+    """0xAD is ``ư`` in TCVN3, so dropping it deletes a letter, not a hint.
+
+    python-docx's ``run.text`` ignores ``<w:softHyphen/>``. Routed through LibreOffice's
+    .doc → .docx conversion, that lost every ``ư`` in a legacy document — 848 of 848
+    across a ten-document corpus, silently.
+    """
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    run = document.add_paragraph().add_run("ng")
+    _append_soft_hyphen(run)
+    source = tmp_path / "shy_paragraph.docx"
+    document.save(str(source))
+
+    extraction = DocxEngine().extract(source, LoadOptions())
+    assert "\u00ad" in extraction.text
+
+
+def test_soft_hyphen_survives_table_extraction(tmp_path: Path) -> None:
+    """Table cells are a second path to the same loss.
+
+    Fixing only the paragraph path left the soft hyphens inside tables missing, which is
+    where Vietnamese administrative forms keep most of their content.
+    """
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    table = document.add_table(rows=1, cols=1)
+    run = table.cell(0, 0).paragraphs[0].add_run("t")
+    _append_soft_hyphen(run)
+    source = tmp_path / "shy_table.docx"
+    document.save(str(source))
+
+    extraction = DocxEngine().extract(source, LoadOptions())
+    assert "\u00ad" in extraction.text
