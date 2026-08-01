@@ -6,6 +6,34 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.8] — 2026-08-01
+
+The first release since 0.1.5 to change behaviour rather than metadata.
+
+### Fixed
+
+- **TCVN3 conversion was one sixth complete.** The table held 12 of the 74 mappings
+  the encoding needs — the `a` vowel family plus `đ` — so real documents came back
+  with `à á ả ã ạ ă đ` restored and `ế ị ộ ứ ổ ơ ề` untouched. Measured against ten
+  hand-transcribed Vietnamese government documents, diacritic recovery was 32.8%.
+
+  The source column is now validated against a corpus of 31 TCVN3 documents published
+  by government bodies between 1998 and 2009, by aligning byte sequences with the
+  fixed phrases such documents always carry. Every entry but one is backed by an
+  observed occurrence (VIP-85).
+
+  Anyone parsing TCVN3 with 0.1.7 or earlier should re-run their corpus: text that
+  looked partly converted was silently keeping most of its diacritics as Latin-1
+  bytes.
+
+### Note for anyone relying on content-based detection
+
+Completing one table narrows the margins between all of them. A complete TCVN3 table
+trial-converts VISCII bytes into something Vietnamese-shaped enough to land within
+0.011 of the correct reading on a short phrase, at which point detection declines to
+choose rather than guessing. Over a sentence the gap is ~0.09. Content detection
+remains opt-in for exactly this reason; font signals are unaffected.
+
 ## [0.1.7] — 2026-08-01
 
 Metadata only — `src/` is byte-identical to 0.1.6. Cut so PyPI stops publishing
@@ -155,7 +183,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/TrizenX/viparse/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/TrizenX/viparse/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/TrizenX/viparse/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/TrizenX/viparse/compare/v0.1.4...v0.1.5
