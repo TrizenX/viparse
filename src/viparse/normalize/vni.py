@@ -8,14 +8,18 @@ mark → ``á``). The framework matches longest sequences first, so ``aù`` is
 converted before a bare ``a`` is ever considered.
 
 .. warning::
-   **Provenance / validation.** The *legacy mark* characters below follow the
-   standard VNI-Windows layout but were transcribed without an authoritative
-   charset file (unavailable in this environment). The Unicode *targets* are
-   exact. Validate the source column against an authoritative VNI reference (see
-   the ``add-encoding`` skill, step 1) before production use.
+   **Provenance.** Most of this table was transcribed from the standard VNI-Windows
+   layout without an authoritative charset file, and one entry was wrong as a result:
+   grave was recorded as ``a½``, which is a *TCVN3* byte (0xBD is ẵ there). The entries
+   marked below are the ones checked against real VNI documents; the rest still carry
+   the original provenance and should be validated the same way before being relied on.
 
 Only well-established sequences are included for now; the table grows as entries
 are validated. Unmatched characters pass through unchanged.
+
+The table is five sequences plus ``đ`` against roughly fifty the encoding needs, so a
+VNI document comes back mostly unconverted. Measured at 0.246 diacritic accuracy in
+``TrizenX/viparse-corpus`` — detection is not the gap, coverage is.
 """
 
 from __future__ import annotations
@@ -26,7 +30,9 @@ ENCODING_NAME = "vni"
 
 # VNI surface sequence (base letter + mark) → Unicode Vietnamese letter (NFC).
 _ENTRIES = [
-    ("a½", "à"),  # a + grave
+    # Verified against the VNI documents in TrizenX/viparse-corpus: `aø` occurs 211
+    # times (thaønh, haønh, ngaønh, baøn, Caø Mau) and `a½` not once.
+    ("aø", "à"),  # a + grave
     ("aù", "á"),  # a + acute
     ("aû", "ả"),  # a + hook
     ("aõ", "ã"),  # a + tilde

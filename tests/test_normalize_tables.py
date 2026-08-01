@@ -84,7 +84,9 @@ def test_tcvn3_output_is_nfc() -> None:
 
 
 def test_vni_converts_composite_sequences() -> None:
-    assert convert("a½aùaûaõaï", VNI) == "àáảãạ"
+    # Grave is `aø`. This test read `a½` until VIP-89, having been written from the
+    # table rather than from a document, so it confirmed the table's own error.
+    assert convert("aøaùaûaõaï", VNI) == "àáảãạ"
 
 
 def test_vni_converts_dj() -> None:

@@ -47,6 +47,35 @@ def test_vni_entry_converts(source: str, target: str) -> None:
     assert convert(source, _VNI) == unicodedata.normalize("NFC", target)
 
 
+# Words quoted from the VNI documents in TrizenX/viparse-corpus, with the reading a
+# person gave them. Unlike the parametrised test above — which asserts the table equals
+# itself and passes whatever the table says — these fail if a sequence is wrong.
+#
+# This is how `a½` survived: it is a TCVN3 byte (0xBD is ẵ there), it appears in no VNI
+# document, and a self-referential test cannot notice an entry that never matches.
+_VNI_SURFACE_FORMS_FROM_REAL_DOCUMENTS = [
+    ("thaønh", "thành"),
+    ("ngaønh", "ngành"),
+    ("baøn", "bàn"),
+    ("Caø Mau", "Cà Mau"),
+]
+
+
+@pytest.mark.parametrize(("surface", "expected"), _VNI_SURFACE_FORMS_FROM_REAL_DOCUMENTS)
+def test_vni_converts_words_taken_from_real_documents(surface: str, expected: str) -> None:
+    assert convert(surface, _VNI) == unicodedata.normalize("NFC", expected)
+
+
+def test_vni_table_holds_no_sequence_absent_from_real_documents() -> None:
+    """`½` is TCVN3's ẵ and has no role in VNI.
+
+    Narrow on purpose. It guards the specific byte that was wrong rather than asserting
+    something general about which characters VNI may use, which would need an
+    authoritative charset file this table does not yet have.
+    """
+    assert not [pair for pair in _VNI.pairs if "\u00bd" in pair[0]]
+
+
 @pytest.mark.parametrize("name", ["tcvn3", "vni", "viscii", "vps"])
 def test_all_table_targets_are_nfc(name: str) -> None:
     assert all(unicodedata.is_normalized("NFC", target) for _, target in CHARMAPS[name].pairs)
