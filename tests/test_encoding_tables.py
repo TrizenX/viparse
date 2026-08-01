@@ -66,6 +66,51 @@ def test_vni_converts_words_taken_from_real_documents(surface: str, expected: st
     assert convert(surface, _VNI) == unicodedata.normalize("NFC", expected)
 
 
+# The four letters the table deliberately does not map, and why a test names them:
+# an absent entry is indistinguishable from a forgotten one unless something records
+# the difference. If a VNI document containing one of these is ever collected, this
+# test is the thing that should fail.
+_VNI_KNOWN_GAPS = ["ẳ", "ẵ", "Ẳ", "Ẵ"]
+
+
+@pytest.mark.parametrize("letter", _VNI_KNOWN_GAPS)
+def test_vni_gap_is_deliberate_and_unmapped(letter: str) -> None:
+    assert letter not in {target for _, target in _VNI.pairs}
+
+
+def test_vni_covers_the_vietnamese_repertoire_apart_from_the_known_gaps() -> None:
+    """Every Vietnamese accented letter except the four unobserved ones.
+
+    The table is generated from the corpus by inverting a decoding table, and an
+    inversion can produce letters Vietnamese does not have — an earlier pass emitted
+    `ĕ`, `ĭ`, `ŏ`, `ŭ`, `ŷ` because they compose to a single codepoint and nothing
+    checked they were Vietnamese. This asserts the repertoire in both directions.
+    """
+    accented = "àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
+    repertoire = set(accented) | {ch.upper() for ch in accented}
+    mapped = {target for _, target in _VNI.pairs}
+    assert mapped - repertoire == set(), "table maps non-Vietnamese letters"
+    assert repertoire - mapped == set(_VNI_KNOWN_GAPS)
+
+
+# Whole phrases quoted from the VNI documents in viparse-corpus. Words alone exercise a
+# handful of entries; these are the fixed formulas every Vietnamese administrative
+# document opens with, and they run the base+mark machinery over both cases at once.
+_VNI_PHRASES_FROM_REAL_DOCUMENTS = [
+    ("COÄNG HOØA XAÕ HOÄI CHUÛ NGHÓA VIEÄT NAM", "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"),
+    ("Ñoäc laäp - Töï do - Haïnh phuùc", "Độc lập - Tự do - Hạnh phúc"),
+    ("UÛY BAN NHAÂN DAÂN TÆNH", "ỦY BAN NHÂN DÂN TỈNH"),
+    ("Caên cöù Luaät Toå chöùc HÑND vaø UBND", "Căn cứ Luật Tổ chức HĐND và UBND"),
+    ("quyeát ñònh naøy coù hieäu löïc", "quyết định này có hiệu lực"),
+    ("nghæ maát söùc", "nghỉ mất sức"),
+]
+
+
+@pytest.mark.parametrize(("surface", "expected"), _VNI_PHRASES_FROM_REAL_DOCUMENTS)
+def test_vni_converts_phrases_taken_from_real_documents(surface: str, expected: str) -> None:
+    assert convert(surface, _VNI) == unicodedata.normalize("NFC", expected)
+
+
 def test_vni_table_holds_no_sequence_absent_from_real_documents() -> None:
     """`½` is TCVN3's ẵ and has no role in VNI.
 
