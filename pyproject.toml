@@ -40,6 +40,9 @@ rtf = ["striprtf>=0.0.29,<0.1"]
 ocr = ["pytesseract>=0.3,<0.4", "pdf2image>=1.17,<2", "pillow>=10,<13"]
 langchain = ["langchain-core>=0.3,<2"]
 llamaindex = ["llama-index-core>=0.11,<1"]
+# Not in `all`: `all` is for parsing capability, and the MCP server is a delivery
+# surface. Installing every format handler should not start pulling in a server runtime.
+mcp = ["mcp>=2,<3"]
 all = ["viparse[office,pdf,rtf,ocr,langchain,llamaindex]"]
 # The two gatekeepers are capped to a single minor series on purpose. Both decide whether CI
 # passes, so a new release lands as a red build on whatever unrelated PR is open at the time:
@@ -59,6 +62,7 @@ dev = [
 
 [project.scripts]
 viparse = "viparse.cli:main"
+viparse-mcp = "viparse.mcp.server:main"
 
 [project.urls]
 Homepage = "https://viparse.trizenx.com"
