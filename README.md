@@ -130,6 +130,21 @@ returns a preview so its answer can be judged rather than trusted.
 `read_vietnamese_document` is `viparse.load` over a path. `viparse_version` is for bug
 reports.
 
+### The agent skill
+
+`skills/garbled-vietnamese-text/SKILL.md` is a Claude-style skill covering the same
+ground for agents that do not have the MCP server: how to recognise each encoding, how
+to convert, and the traps — never convert text that is already Unicode, a font name is
+not proof, one document can be two encodings, and detection needs a phrase rather than a
+four-character fragment.
+
+Copy it into `.claude/skills/` (or your agent's equivalent) to use it.
+
+`tests/test_skill.py` **executes every conversion the document claims**, reading the
+examples out of the Markdown table rather than duplicating them. A skill whose examples
+do not run is worse than no skill: an agent follows it, gets a wrong answer, and has no
+reason to doubt the instruction.
+
 ### If you change the tool descriptions, keep the symptom in them
 
 This is the one thing about `src/viparse/mcp/server.py` that is not obvious.
