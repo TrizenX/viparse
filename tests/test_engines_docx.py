@@ -318,3 +318,92 @@ def test_soft_hyphen_survives_table_extraction(tmp_path: Path) -> None:
 
     extraction = DocxEngine().extract(source, LoadOptions())
     assert "\u00ad" in extraction.text
+
+
+# --- Tracked insertions: body text python-docx cannot see (VIP-95) ---------------------
+
+
+def _wrap_run_in(paragraph: object, text: str, tag: str) -> None:
+    """Move a new run into a ``<{tag}>`` wrapper inside the paragraph.
+
+    Built through the XML because that is how the loss happens: `paragraph.runs` returns
+    only *direct* `w:r` children, so a fixture that adds the run normally would be
+    reachable with or without the fix and would prove nothing.
+    """
+    from docx.oxml.ns import qn
+
+    run = paragraph.add_run(text)  # type: ignore[attr-defined]
+    element = run._element
+    wrapper = element.makeelement(qn(tag), {})
+    element.getparent().replace(element, wrapper)
+    wrapper.append(element)
+
+
+def test_tracked_insertion_text_is_extracted(tmp_path: Path) -> None:
+    """``w:ins`` holds ordinary prose, and it was being dropped entirely.
+
+    In one real government document 10,473 of 25,377 characters — 41% — sat inside
+    ``w:ins``, because LibreOffice writes tracked insertions when converting a legacy
+    ``.doc`` that carries them. None of it reached the text.
+    """
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    paragraph = document.add_paragraph()
+    paragraph.add_run("visible ")
+    _wrap_run_in(paragraph, "inserted", "w:ins")
+    source = tmp_path / "tracked_insert.docx"
+    document.save(str(source))
+
+    extraction = DocxEngine().extract(source, LoadOptions())
+    assert "inserted" in extraction.text
+    assert "visible inserted" in extraction.text
+
+
+def test_tracked_deletion_text_is_not_extracted(tmp_path: Path) -> None:
+    """``w:del`` is what a tracked change *removed*.
+
+    Reaching into wrappers indiscriminately would resurrect deleted sentences, which is
+    a worse failure than dropping inserted ones — the text would be wrong rather than
+    short, and nothing downstream could tell.
+    """
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    paragraph = document.add_paragraph()
+    paragraph.add_run("kept ")
+    _wrap_run_in(paragraph, "removed", "w:del")
+    source = tmp_path / "tracked_delete.docx"
+    document.save(str(source))
+
+    assert "removed" not in DocxEngine().extract(source, LoadOptions()).text
+
+
+def test_tracked_insertion_appears_in_run_segments(tmp_path: Path) -> None:
+    """The per-run font signal must see the same runs the text does.
+
+    The normalizer converts mixed-encoding paragraphs at run granularity, so a run that
+    is in the text but not in the segment list would be converted with the wrong table.
+    """
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    paragraph = document.add_paragraph()
+    paragraph.add_run("a")
+    _wrap_run_in(paragraph, "b", "w:ins")
+    source = tmp_path / "tracked_runs.docx"
+    document.save(str(source))
+
+    blocks = DocxEngine().extract(source, LoadOptions()).signals["blocks"]
+    segments = [seg["text"] for block in blocks for seg in block.get("runs", [])]
+    assert segments == ["a", "b"]
+
+
+def test_hyperlink_wrapped_run_is_extracted(tmp_path: Path) -> None:
+    """``w:hyperlink`` wraps runs the same way, and is far more common than tracked changes."""
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    paragraph = document.add_paragraph()
+    paragraph.add_run("see ")
+    _wrap_run_in(paragraph, "the site", "w:hyperlink")
+    source = tmp_path / "hyperlink.docx"
+    document.save(str(source))
+
+    assert "see the site" in DocxEngine().extract(source, LoadOptions()).text

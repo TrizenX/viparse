@@ -184,15 +184,65 @@ def _run_text(run: Any) -> str:
     return "".join(parts)
 
 
+# Elements that wrap runs inside a paragraph. `paragraph.runs` returns only *direct*
+# `w:r` children, so a run inside any of these is invisible to it — in one real
+# government document 10,473 of 25,377 characters, 41%, sat inside `w:ins`.
+_RUN_CONTAINERS = ("w:ins", "w:hyperlink", "w:smartTag", "w:moveTo", "w:sdtContent")
+
+# ...and the ones whose runs are *not* part of the document text. `w:del` and
+# `w:moveFrom` hold what a tracked change removed; including them would resurrect
+# deleted sentences, which is a worse failure than dropping inserted ones.
+_REMOVED_CONTAINERS = ("w:del", "w:moveFrom")
+
+
+def _paragraph_run_elements(paragraph: Any) -> list[Any]:
+    """Every ``w:r`` in the paragraph, in document order, minus deleted ones.
+
+    ``paragraph.runs`` is only the direct children. A document that has been through
+    review carries most of its prose inside ``w:ins`` — LibreOffice writes tracked
+    insertions when converting a legacy ``.doc`` that has them — and none of it reaches
+    the text.
+
+    This is the same shape as the soft-hyphen loss (VIP-87): a convenience accessor that
+    under-reports, silently, on real documents but never on a synthetic fixture.
+    """
+    from docx.oxml.ns import qn
+
+    removed = {qn(tag) for tag in _REMOVED_CONTAINERS}
+    root = paragraph._p
+    kept: list[Any] = []
+    for run in root.iter(qn("w:r")):
+        node = run.getparent()
+        while node is not None and node is not root:
+            if node.tag in removed:
+                break
+            node = node.getparent()
+        else:
+            kept.append(run)
+    return kept
+
+
+def _paragraph_run_objects(paragraph: Any) -> list[Any]:
+    """:func:`_paragraph_run_elements` wrapped as python-docx ``Run`` objects.
+
+    ``_run_font`` reads run properties and style inheritance through the wrapper, so the
+    elements alone are not enough.
+    """
+    from docx.text.run import Run
+
+    return [Run(element, paragraph) for element in _paragraph_run_elements(paragraph)]
+
+
 def _paragraph_text(paragraph: Any) -> str:
     """``paragraph.text`` built from :func:`_run_text`.
 
     python-docx defines paragraph text as the concatenation of its run texts, so building
     it the same way keeps the block text and the run segments in step. Fixing only one of
     them would shift the run boundaries the normalizer relies on for per-run font
-    detection.
+    detection — which is why both go through :func:`_paragraph_run_objects` rather than
+    ``paragraph.runs``.
     """
-    return "".join(_run_text(run) for run in paragraph.runs)
+    return "".join(_run_text(run) for run in _paragraph_run_objects(paragraph))
 
 
 def _cell_text(cell: Any) -> str:
@@ -214,7 +264,7 @@ def _paragraph_runs(paragraph: Any) -> list[dict[str, Any]]:
     """
     return [
         {"text": text, "font": _run_font(run, paragraph)}
-        for run, text in ((run, _run_text(run)) for run in paragraph.runs)
+        for run, text in ((run, _run_text(run)) for run in _paragraph_run_objects(paragraph))
         if text
     ]
 
