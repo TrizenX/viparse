@@ -6,6 +6,38 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.12] — 2026-08-01
+
+### Fixed
+
+- **Uppercase VISCII was never detected, and its letters were silently deleted.**
+  Content detection ran on cleaned text, and cleanup strips control characters. VISCII
+  keeps **38 of its 103 letters in the control ranges** — 6 in C0 (`Ẳ Ẵ Ẫ Ỷ Ỹ Ỵ`) and
+  32 in C1 (`Ạ Ộ Ế Ề Ệ Ị Ọ Ủ Ụ` among them) — so over a third of a VISCII document was
+  deleted before scoring. VISCII scored near zero on its own text, `encoding_detected`
+  came back `None`, and the caller got mojibake with letters missing: `CỘNG` → `CNG`,
+  `CHỦ` → `CH` (VIP-93).
+
+  The split is by case, which is why it survived so long. VISCII keeps its *lowercase*
+  letters in `0xA0–0xFF` and only its uppercase ones in C0/C1, so the existing detection
+  test — `"Việt Nam độc lập"`, all lowercase — passed throughout. The case that failed
+  was `"CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"`, the line every Vietnamese administrative
+  document opens with.
+
+  **Affects `encoding="auto"` only.** Explicit `encoding="viscii"` already worked, since
+  conversion runs before cleanup on that path. Font-signal detection is unaffected — and
+  cannot find VISCII regardless, because VISCII is a charset rather than a font hack and
+  declares no distinctive font name.
+
+  **Re-run any VISCII corpus parsed with `encoding="auto"` on 0.1.11 or earlier.**
+
+### Not fixed
+
+`encoding="auto"` still reads Spanish `"señor"` as VNI and returns `"seđor"`. That
+behaviour is unchanged by this release and is the documented trade-off of an opt-in path
+where the caller asserts the source is legacy Vietnamese. Pass an explicit `encoding=`
+when the source language is not certain.
+
 ## [0.1.11] — 2026-08-01
 
 ### Added
@@ -264,7 +296,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/TrizenX/viparse/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/TrizenX/viparse/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/TrizenX/viparse/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/TrizenX/viparse/compare/v0.1.8...v0.1.9
