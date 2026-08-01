@@ -6,6 +6,39 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.14] — 2026-08-02
+
+### Added
+
+- **Footnotes and endnotes are read.** They live in their own OOXML parts
+  (`word/footnotes.xml`, `word/endnotes.xml`), so nothing that walks the document body
+  reached them. On one real document that was 1,062 characters — the entire bibliography
+  — missing with no warning (VIP-98).
+
+  Placed **after the body**, not inlined at the reference point. That is where Word
+  itself keeps them: in the legacy `.doc` this was measured on, the footnote text follows
+  the closing `./.`. Splicing a citation into the middle of the sentence that cites it
+  would corrupt exactly the sentence boundaries downstream chunking depends on.
+
+  Word's two housekeeping notes in each part — the rule drawn above the notes, and the
+  one drawn when they continue onto the next page — are skipped, so a document with a
+  single footnote does not gain two spurious blocks. A malformed notes part is skipped
+  rather than allowed to fail the extraction; the body is worth more than the citations.
+
+### Measured
+
+TCVN3 diacritic accuracy over 43 real documents: **0.977 → 0.981**.
+
+### Known limitation, and it is not this library's
+
+The document that motivated this fix still scores 0.679. What holds it there is
+**LibreOffice's own `.doc` → `.docx` conversion, which loses about 5,642 characters** —
+passages present in the original appear in neither `document.xml` nor `footnotes.xml`,
+so they are gone before viparse is handed anything.
+
+On that document roughly **18% of the achievable ceiling belongs to the conversion step,
+not to viparse**. Worth knowing before a legacy-`.doc` score is read as a parser score.
+
 ## [0.1.13] — 2026-08-02
 
 Two extraction fixes, both found by real documents rather than fixtures, and both
@@ -361,7 +394,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.13...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.14...HEAD
+[0.1.14]: https://github.com/TrizenX/viparse/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/TrizenX/viparse/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/TrizenX/viparse/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/TrizenX/viparse/compare/v0.1.10...v0.1.11
