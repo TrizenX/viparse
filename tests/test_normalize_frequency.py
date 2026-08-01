@@ -41,7 +41,19 @@ def test_detects_vni_by_content() -> None:
 
 
 def test_detects_viscii_by_content() -> None:
-    surface = _encode_viscii("Việt Nam độc lập tự do hạnh phúc")
+    # Deliberately a full sentence rather than a stock phrase. Content-frequency
+    # detection separates candidates by margin, and the margin scales with sample
+    # length: on the six-word phrase this used to carry, a *complete* TCVN3 table
+    # trial-converts VISCII bytes into something Vietnamese-shaped enough to score
+    # within 0.011 of the correct reading, and the detector correctly declines to
+    # choose. Over a sentence the gap widens to ~0.09 and VISCII wins outright.
+    #
+    # This is why content detection stays opt-in: it is a heuristic whose
+    # reliability depends on how much text it is given.
+    surface = _encode_viscii(
+        "Việt Nam độc lập tự do hạnh phúc. Căn cứ Nghị định của Chính phủ "
+        "về việc quản lý hóa đơn, Bộ Tài chính hướng dẫn thực hiện như sau."
+    )
     assert detect_encoding_by_content(surface, CHARMAPS).encoding == "viscii"
 
 
