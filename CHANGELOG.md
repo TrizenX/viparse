@@ -6,6 +6,58 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.16] — 2026-08-02
+
+### Fixed
+
+- **`encoding="auto"` was a no-op on every PDF.** The gate for content detection was
+  `method == "assumed-unicode"`, which means *no fonts at all* — and a PDF always
+  reports fonts. The same text with no font information detected fine, so a font name,
+  which says nothing about whether the text is Vietnamese, decided whether the caller's
+  opt-in was honoured. Now gated on the fonts naming no *legacy* encoding (VIP-103).
+
+- **`encoding="auto"` no longer corrupts other Latin languages.** 0.1.12 recorded under
+  "Not fixed" that it turned Spanish `Señor` into `Seđor`. It no longer does, with or
+  without fonts present.
+
+  Frequency scoring cannot separate them: against the character model real TCVN3 gains
+  **+0.244** while Spanish gains **+0.253** and German **+0.288**. Both beat genuine
+  Vietnamese, so no threshold would work — raising it only starts rejecting real
+  documents.
+
+  What separates them is what the conversion *produces*, measured over the 48
+  hand-transcribed documents in
+  [viparse-corpus](https://github.com/TrizenX/viparse-corpus) against the same text run
+  through the winning table:
+
+  | | real Vietnamese (worst) | Spanish | French | German |
+  | --- | ---: | ---: | ---: | ---: |
+  | words > 7 letters | 0.008 | 0.095 | 0.222 | 0.375 |
+  | words with `f/j/w/z` | 0.016 | 0.036 | 0.250 | 0.171 |
+
+  Vietnamese writes each syllable as its own word, so long words barely exist, and the
+  alphabet has no f, j, w or z. Both tests are applied, because a Spanish sample that
+  happens to avoid f/j/w/z sits under the alien ceiling on its own.
+
+### Unchanged
+
+Accuracy is identical to 0.1.15 to three decimals — 0.981 diacritic over 43 TCVN3
+documents, 0.998 over 4 VNI, 0.949 on the mixed-encoding one. The guards do not touch
+real Vietnamese. Default mode is untouched; content detection remains opt-in.
+
+### Known limitation
+
+On a short sample the guards' rates are noisy, and they decline toward **leaving text
+alone** rather than converting it. Detection is already unreliable on fragments for the
+same reason: `laäp` on its own is read as VISCII, `Ñoäc laäp` as VNI. Pass a phrase, or
+name the encoding.
+
+**PDF, RTF and XLSX still have no real-document coverage.** The corpus is `.doc` only,
+and `.doc` reaches the DOCX engine through LibreOffice — so that path is well tested
+while the others are not. The bug above is the first one that gap was hiding.
+PowerPoint has no engine at all; `.pptx` is recognised and then fails with
+`EngineUnavailable`.
+
 ## [0.1.15] — 2026-08-02
 
 The first release that is not about parsing. Both additions exist so an agent that has
@@ -445,7 +497,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.15...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.16...HEAD
+[0.1.16]: https://github.com/TrizenX/viparse/compare/v0.1.15...v0.1.16
 [0.1.15]: https://github.com/TrizenX/viparse/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/TrizenX/viparse/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/TrizenX/viparse/compare/v0.1.12...v0.1.13
