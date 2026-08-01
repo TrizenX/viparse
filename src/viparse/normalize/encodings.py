@@ -6,6 +6,8 @@ the detector and normalizer can look them up by name.
 
 from __future__ import annotations
 
+import unicodedata
+
 from viparse.normalize.tables import Charmap
 from viparse.normalize.tcvn3 import TCVN3
 from viparse.normalize.viscii import VISCII
@@ -35,6 +37,27 @@ CHARMAPS: dict[str, Charmap] = _register(TCVN3, VNI, VISCII, VPS)
 AUTO_DETECT_CHARMAPS: dict[str, Charmap] = {
     name: charmap for name, charmap in CHARMAPS.items() if name != VPS.name
 }
+
+
+def control_chars_in(charmaps: dict[str, Charmap]) -> frozenset[str]:
+    """Characters these charmaps read as letters but Unicode classes as control codes.
+
+    VISCII puts **38 of its 103 letters** in the C0 and C1 ranges — 6 in C0 (Ẳ Ẵ Ẫ Ỷ Ỹ Ỵ)
+    and 32 in C1 (Ạ Ộ Ế Ề Ệ Ị Ọ Ủ Ụ among them). VPS is worse at 44 of 112. Stripping
+    control characters before content detection therefore deletes over a third of the
+    evidence detection needs, and VISCII scores near zero on its own text — which is why
+    a canonical VISCII header returned ``encoding_detected=None`` before VIP-93.
+
+    Computed from the tables rather than listed, so a table that gains an entry in the
+    control ranges is covered without anyone remembering to update a constant.
+    """
+    return frozenset(
+        ch
+        for charmap in charmaps.values()
+        for source, _ in charmap.pairs
+        for ch in source
+        if unicodedata.category(ch) in ("Cc", "Cf")
+    )
 
 
 def get_charmap(name: str) -> Charmap | None:

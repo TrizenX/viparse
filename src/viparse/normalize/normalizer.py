@@ -44,7 +44,7 @@ from viparse.normalize.detector import (
     detect_encoding,
     detect_encoding_by_content,
 )
-from viparse.normalize.encodings import AUTO_DETECT_CHARMAPS, get_charmap
+from viparse.normalize.encodings import AUTO_DETECT_CHARMAPS, control_chars_in, get_charmap
 from viparse.normalize.tables import Charmap, convert
 from viparse.options import LoadOptions, NormalizeForm
 
@@ -244,9 +244,13 @@ class VietnameseNormalizer:
                 # because character-frequency scoring can misclassify non-Vietnamese text
                 # (e.g. Spanish "señor") as legacy and corrupt it — the moat's cardinal
                 # sin. The caller opting in asserts the source is legacy Vietnamese. The
-                # text is cleaned first so control-character noise cannot dilute the score.
+                # text is cleaned first so control-character noise cannot dilute the
+                # score — but *not* the control characters a candidate charmap reads as
+                # letters. VISCII keeps 38 of its 103 letters in C0/C1, so cleaning them
+                # away first deleted the evidence and VISCII was never detected at all.
                 detection = detect_encoding_by_content(
-                    clean_text(raw.text, form), AUTO_DETECT_CHARMAPS
+                    clean_text(raw.text, form, preserve=control_chars_in(AUTO_DETECT_CHARMAPS)),
+                    AUTO_DETECT_CHARMAPS,
                 )
 
             # Per-block path: only when the engine tagged blocks with their own fonts and

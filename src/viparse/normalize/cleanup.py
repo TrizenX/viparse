@@ -30,23 +30,39 @@ _BLANK_RUN = re.compile(r"\n{3,}")
 _LINE_BREAKING_CONTROLS = str.maketrans({"\x0c": "\n", "\x0b": "\n"})
 
 
-def _strip_control_chars(text: str) -> str:
-    """Drop control (Cc) and format (Cf) characters, keeping tab and newline."""
+def _strip_control_chars(text: str, preserve: frozenset[str] = frozenset()) -> str:
+    """Drop control (Cc) and format (Cf) characters, keeping tab and newline.
+
+    ``preserve`` exempts characters that are control codes as Unicode but *letters* in
+    some legacy Vietnamese encoding — see :func:`clean_text`.
+    """
     return "".join(
-        ch for ch in text if ch in "\t\n" or unicodedata.category(ch) not in ("Cc", "Cf")
+        ch
+        for ch in text
+        if ch in "\t\n" or ch in preserve or unicodedata.category(ch) not in ("Cc", "Cf")
     )
 
 
-def clean_text(text: str, normalize_form: NormalizeForm = "NFC") -> str:
+def clean_text(
+    text: str,
+    normalize_form: NormalizeForm = "NFC",
+    preserve: frozenset[str] = frozenset(),
+) -> str:
     """Normalize whitespace and strip junk characters, preserving block structure.
 
     Stripping format (Cf) characters can un-block a base letter + combining mark
     that a stray zero-width/formatting character was keeping apart, so the text is
     re-normalized to ``normalize_form`` (default NFC) as the final step.
+
+    ``preserve`` holds characters to keep even when they are Cc/Cf. It exists because
+    VISCII stores 38 of its 103 letters — Ạ Ộ Ế Ệ Ị Ọ Ủ among them — in the C0 and C1
+    control ranges, so on *unconverted* VISCII bytes this function is not removing junk,
+    it is deleting Vietnamese. Callers cleaning text that has already been converted
+    want the default: by then the control codes really are junk.
     """
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = text.translate(_LINE_BREAKING_CONTROLS)
-    text = _strip_control_chars(text)
+    text = _strip_control_chars(text, preserve)
     lines = [_HORIZONTAL_WS.sub(" ", line).strip(" ") for line in text.split("\n")]
     joined = _BLANK_RUN.sub("\n\n", "\n".join(lines))
     return unicodedata.normalize(normalize_form, joined.strip("\n"))

@@ -8,6 +8,8 @@ from typing import Any
 import pytest
 
 from viparse.model import Heading, Paragraph, RawExtraction, Table
+from viparse.normalize.cleanup import clean_text
+from viparse.normalize.encodings import AUTO_DETECT_CHARMAPS, control_chars_in
 from viparse.normalize.normalizer import VietnameseNormalizer
 from viparse.normalize.viscii import _BYTE_TO_CODEPOINT as _VISCII_BYTES
 from viparse.options import LoadOptions
@@ -87,6 +89,48 @@ def test_auto_encoding_content_detects_without_a_font_signal() -> None:
     )
     assert nd.encoding_detected == "viscii"
     assert nd.text == text
+
+
+# The test above passes with lowercase text and passed before VIP-93, which is how the
+# bug survived: VISCII keeps its *lowercase* letters in 0xA0–0xFF, and only its
+# uppercase ones in the C0/C1 control ranges — 38 of 103 mappings. Cleaning control
+# characters before scoring therefore deleted the evidence for uppercase VISCII only.
+#
+# The text below is the header every Vietnamese administrative document opens with, so
+# the case that failed was not an edge case; it was the most common line in the corpus.
+_VISCII_UPPERCASE_HEADER = "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+
+
+def test_auto_encoding_content_detects_uppercase_viscii() -> None:
+    nd = VietnameseNormalizer().normalize(
+        _raw(_viscii_surface(_VISCII_UPPERCASE_HEADER), []), LoadOptions(encoding="auto")
+    )
+    assert nd.encoding_detected == "viscii"
+    assert nd.text == _VISCII_UPPERCASE_HEADER
+
+
+def test_viscii_letters_in_the_c0_range_survive_content_detection() -> None:
+    """Ẳ Ẵ Ẫ Ỷ Ỹ Ỵ are stored at 0x02 0x05 0x06 0x14 0x19 0x1E."""
+    text = "Ẳ Ẵ Ẫ Ỷ Ỹ Ỵ " + _VISCII_UPPERCASE_HEADER
+    nd = VietnameseNormalizer().normalize(
+        _raw(_viscii_surface(text), []), LoadOptions(encoding="auto")
+    )
+    assert nd.encoding_detected == "viscii"
+    assert nd.text == text
+
+
+def test_cleanup_still_strips_control_characters_by_default() -> None:
+    """The preserve set is opt-in; converted text must still be cleaned as before."""
+    assert clean_text("a\x00b\x07c") == "abc"
+    assert clean_text("a\x02b") == "ab"
+
+
+def test_control_chars_in_covers_both_control_ranges() -> None:
+    preserved = control_chars_in(AUTO_DETECT_CHARMAPS)
+    assert set("ẲẴẪỶỸỴ") <= {chr(cp) for byte, cp in _VISCII_BYTES if chr(byte) in preserved}
+    # Every preserved character must actually be a control code — preserving a printable
+    # one would silently disable cleanup for it.
+    assert all(unicodedata.category(ch) in ("Cc", "Cf") for ch in preserved)
 
 
 def test_default_mode_never_content_detects() -> None:
