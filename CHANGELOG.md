@@ -6,6 +6,71 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.13] — 2026-08-02
+
+Two extraction fixes, both found by real documents rather than fixtures, and both
+silent: the output looked like correct Vietnamese while a large part of the document
+was missing or unconverted.
+
+### Fixed
+
+- **Tracked insertions were dropped entirely.** `python-docx`'s `paragraph.runs` returns
+  only *direct* `w:r` children of `w:p`, so a run inside `<w:ins>` was invisible — and
+  LibreOffice writes tracked insertions when converting a legacy `.doc` that carries
+  them. In one real government document 10,473 of 25,377 characters, **41% of the body**,
+  were discarded without a warning (VIP-95).
+
+  Both the block text and the per-run font segments now walk `w:r` descendants in
+  document order, so they stay in step for mixed-encoding paragraphs. Also reached:
+  `w:hyperlink`, `w:smartTag`, `w:moveTo`, `w:sdtContent`.
+
+  Runs under `w:del` and `w:moveFrom` stay excluded. Those hold what a tracked change
+  *removed*; including them would resurrect deleted sentences, and text that is wrong is
+  worse than text that is short.
+
+  **Re-run any `.docx` or legacy `.doc` corpus that has been through review.**
+
+- **A block whose font name is unrecognised is now read by its bytes.** An unknown font
+  produced `encoding=None`, which the planner read as *leave this text alone* — an
+  absence of evidence treated as evidence the text is Unicode. A Lâm Đồng planning
+  document carries 174,646 characters under `VNSTCVN3`, a real TCVN3-era font matching
+  none of `.Vn*`, `VNI-*`, `VPS*` or `ABC*`, and 93% of it was returned unconverted at
+  0.084 diacritic accuracy (VIP-96).
+
+  Recognising the font name would have been worse, not better: **109,211 of those
+  characters are VNI, not TCVN3.** The document was assembled from sections typed on
+  different machines with one font applied across all of them, so the name is actively
+  wrong for most of what it covers.
+
+  Scoped deliberately. Detection runs per *block*, not per run — a per-run pass read
+  `MôC LôC` as VNI. Blocks under 24 characters inherit the previous block's verdict
+  rather than guess. And the fallback needs **both** `encoding="auto"` and a legacy font
+  signal somewhere in the document, so an unrecognised font still protects
+  non-Vietnamese text: `Señor` does not become `Seđor`.
+
+### Measured
+
+Against hand-written transcripts of 48 real documents in
+[viparse-corpus](https://github.com/TrizenX/viparse-corpus):
+
+| Subset | documents | diacritic, 0.1.12 | diacritic, 0.1.13 |
+| --- | ---: | ---: | ---: |
+| TCVN3 | 43 | 0.959 | **0.977** |
+| VNI | 4 | 0.998 | 0.998 |
+| mixed TCVN3+VNI | 1 | 0.084 | **0.949** |
+
+The mixed document needs `encoding="auto"`; the rest are default-mode.
+
+### Known limitation
+
+Footnotes are a separate OOXML part (`word/footnotes.xml`) that the engine does not
+read. On the document above that is 1,062 characters. Whether footnote text belongs
+inline in body text is a design question, still open.
+
+Separately, LibreOffice's own `.doc` → `.docx` conversion can lose text before viparse
+sees it — about 5,642 characters on that same file. That is upstream of this library,
+and worth knowing before a legacy-`.doc` score is read as a parser score.
+
 ## [0.1.12] — 2026-08-01
 
 ### Fixed
@@ -296,7 +361,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.12...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.13...HEAD
+[0.1.13]: https://github.com/TrizenX/viparse/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/TrizenX/viparse/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/TrizenX/viparse/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/TrizenX/viparse/compare/v0.1.9...v0.1.10
