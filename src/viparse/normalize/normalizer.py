@@ -295,9 +295,14 @@ class VietnameseNormalizer:
             confidence = _OVERRIDE_CONFIDENCE
         else:
             detection = detect_encoding(fonts)
-            if override == _AUTO_ENCODING and detection.method == "assumed-unicode":
-                # Opt-in content detection (SPEC-3 E3.2): only when the caller passed
-                # encoding="auto" AND there is no font signal. It is NOT the default,
+            if override == _AUTO_ENCODING and detection.encoding is None:
+                # Opt-in content detection (SPEC-3 E3.2): when the caller passed
+                # encoding="auto" and the fonts named no legacy encoding. The condition
+                # used to be `method == "assumed-unicode"`, which means *no fonts at
+                # all* — but a PDF always reports fonts, so encoding="auto" silently did
+                # nothing on every PDF while working on the same text with no font
+                # information. That made a font name, which says nothing about whether
+                # the text is Vietnamese, decide the outcome. It is NOT the default,
                 # because character-frequency scoring can misclassify non-Vietnamese text
                 # (e.g. Spanish "señor") as legacy and corrupt it — the moat's cardinal
                 # sin. The caller opting in asserts the source is legacy Vietnamese. The

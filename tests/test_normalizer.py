@@ -654,3 +654,78 @@ def test_content_fallback_ignores_blocks_too_short_to_judge() -> None:
     )
     nd = VietnameseNormalizer().normalize(raw, LoadOptions(encoding="auto"))
     assert nd.text.split("\n") == [_VNI_READ, "Mục", _TCVN3_READ]
+
+
+# --- encoding="auto" with fonts present, and what it must not convert (VIP-103) --------
+
+_TCVN3_HEADER = "céng hßa x· héi chñ nghÜa viÖt nam, §éc lËp - Tù do - H¹nh phóc"
+_TCVN3_HEADER_READ = "cộng hòa xã hội chủ nghĩa việt nam, Độc lập - Tự do - Hạnh phúc"
+
+# Other Latin languages with heavy diacritics. Each one *outscores* real TCVN3 against the
+# character-frequency model — Spanish +0.253 and German +0.288 against Vietnamese's +0.244
+# — so no margin can reject them and the guard has to look at what the conversion produced.
+_NOT_VIETNAMESE = [
+    "Señor Muñoz vivía en la mañana con niños pequeños en España, "
+    "la señora enseñaba español a los niños en el año pasado",
+    "Müller größer Straße über Fußgänger schön wunderschöne Landschaft",
+    "François a préféré la crème brûlée à côté de l'hôtel présidentiel",
+]
+
+
+def _auto(text: str, fonts: list[str]) -> Any:
+    return VietnameseNormalizer().normalize(_raw(text, fonts), LoadOptions(encoding="auto"))
+
+
+def test_auto_detects_when_fonts_are_present_but_name_no_legacy_encoding() -> None:
+    """A PDF always reports fonts, so `auto` used to do nothing on every PDF.
+
+    The gate was `method == "assumed-unicode"`, which means *no fonts at all*. That let a
+    font name — which says nothing about whether the text is Vietnamese — decide whether
+    the caller's opt-in was honoured.
+    """
+    normalized = _auto(_TCVN3_HEADER, ["Helvetica"])
+    assert normalized.encoding_detected == "tcvn3"
+    assert normalized.text == _TCVN3_HEADER_READ
+
+
+def test_auto_still_detects_with_no_font_information() -> None:
+    """The path that already worked keeps working."""
+    assert _auto(_TCVN3_HEADER, []).encoding_detected == "tcvn3"
+
+
+@pytest.mark.parametrize("text", _NOT_VIETNAMESE)
+@pytest.mark.parametrize("fonts", [[], ["Helvetica"]])
+def test_auto_leaves_other_latin_languages_alone(text: str, fonts: list[str]) -> None:
+    """Never corrupt good text — including when the good text is not Vietnamese.
+
+    Before VIP-103 the fontless case turned `Señor` into `Seđor`, and 0.1.12's changelog
+    said so under "Not fixed". Widening the gate without this guard would have spread
+    that to every document instead of curing it.
+    """
+    normalized = _auto(text, fonts)
+    assert normalized.encoding_detected is None
+    assert normalized.text == text
+
+
+def test_vietnamese_with_borrowed_foreign_words_is_still_detected() -> None:
+    """The guard's ceilings must not reject real documents that quote English.
+
+    Proportion matters and is taken from the corpus: the document with the most foreign
+    words of all 48 sits at 1.6% alien and 0% long, so one borrowing in a paragraph is
+    the realistic shape. A test with five borrowings in nineteen words is not a document,
+    it is a word list — and it fails, correctly.
+    """
+    text = (
+        _TCVN3_HEADER
+        + " c¨n cø nghÞ ®Þnh sè 86/2002/N§-CP ngµy 05 th¸ng 11 n¨m 2002 cña chÝnh phñ "
+        "quy ®Þnh chøc n¨ng nhiÖm vô quyÒn h¹n vµ c¬ cÊu tæ chøc cña bé, hÖ thèng "
+        "Windows vµ m¹ng m¸y tÝnh néi bé cña c¬ quan"
+    )
+    assert _auto(text, ["Helvetica"]).encoding_detected == "tcvn3"
+
+
+def test_default_mode_is_unaffected_by_all_of_this() -> None:
+    """Content detection stays opt-in; without `auto` the text is untouched."""
+    normalized = VietnameseNormalizer().normalize(_raw(_TCVN3_HEADER, ["Helvetica"]), LoadOptions())
+    assert normalized.encoding_detected is None
+    assert normalized.text == _TCVN3_HEADER
