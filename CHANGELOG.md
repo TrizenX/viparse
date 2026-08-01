@@ -6,6 +6,42 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.11] — 2026-08-01
+
+### Added
+
+- **VNI is usable.** The conversion table went from **6 entries to 130** — the whole
+  Vietnamese repertoire bar four letters. Before this, viparse identified VNI correctly
+  and then had almost nothing to convert it with: a VNI document came back at 0.307
+  diacritic accuracy against TCVN3's 0.987 (VIP-91).
+
+  Derived against the VNI documents in
+  [viparse-corpus](https://github.com/TrizenX/viparse-corpus) — 53,715 characters over
+  four real administrative documents — not transcribed from a layout chart. Each entry
+  carries its occurrence count in that corpus, or the marker `derived`: 104 are observed
+  directly (`ö` → ư 927 times, `ñ` → đ 788), and 26 come from two rules that are
+  themselves observed dozens of times.
+
+### Known limitation
+
+**`ẳ ẵ Ẳ Ẵ` are not mapped, deliberately.** No collected VNI document contains any of
+the four, and every other modifier character that follows a base vowel in that corpus
+is mapped — so these are unobserved, not overlooked. Unmatched input passes through
+unchanged, so a document containing `ẳ` returns it unconverted rather than silently
+wrong. A test names all four; it is what should fail when such a document turns up.
+
+Filling them by symmetry with the ắ/ằ/ặ row would be easy, and it is exactly how the
+`a½` entry fixed in 0.1.10 came to be written.
+
+### A note on the accuracy figure
+
+The corpus reports VNI diacritic accuracy rising 0.307 → 0.998 with this table. **That
+number is circular and is not a quality claim.** The ground truth for those documents
+was produced with the table this one inverts, so it would read 0.998 even if every
+mapping were wrong. It shows the entries transferred intact, nothing more. The evidence
+that the table is right is the per-entry occurrence counts and the fixed administrative
+formulas whose Unicode reading is externally known.
+
 ## [0.1.10] — 2026-08-01
 
 ### Fixed
@@ -228,7 +264,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.11...HEAD
+[0.1.11]: https://github.com/TrizenX/viparse/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/TrizenX/viparse/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/TrizenX/viparse/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/TrizenX/viparse/compare/v0.1.7...v0.1.8
