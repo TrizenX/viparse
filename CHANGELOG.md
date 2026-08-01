@@ -6,6 +6,57 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.15] — 2026-08-02
+
+The first release that is not about parsing. Both additions exist so an agent that has
+never heard of viparse can still find it — by the **symptom** it is looking at rather
+than by the product's name.
+
+### Added
+
+- **MCP server — `pip install "viparse[mcp]"`.** Run it with `viparse-mcp`, or
+  `python -m viparse.mcp` (VIP-100).
+
+  ```json
+  { "mcpServers": { "viparse": { "command": "viparse-mcp" } } }
+  ```
+
+  Four tools. `repair_garbled_vietnamese` takes a **string**, not only a path, because
+  most of the time the agent already has the broken text in context and has nothing to
+  point a file-reading tool at. `identify_vietnamese_encoding` names the encoding
+  without changing anything and returns a preview, so its verdict can be judged rather
+  than trusted. `read_vietnamese_document` is `load()` over a path. `viparse_version`
+  is for bug reports.
+
+  A thin wrapper: no parsing logic, and the safety limits, path handling and layered
+  options are whatever `viparse.load` already enforces.
+
+  `mcp` is deliberately **not** in the `all` extra — `all` is about parsing capability,
+  and installing every format handler should not pull in a server runtime.
+
+- **Agent skill — `skills/garbled-vietnamese-text/SKILL.md`.** Covers recognising each
+  encoding, converting with and without a file, and the traps: never convert text that
+  is already Unicode, a font name is not proof, one document can be two encodings, and
+  detection needs a phrase rather than a four-character fragment (VIP-101).
+
+  Copy it into `.claude/skills/` or your agent's equivalent. Its tests execute every
+  conversion the document claims, read out of the Markdown table rather than
+  duplicated, so the two cannot drift.
+
+### Why both are written around the symptom
+
+An agent never thinks *"I should use viparse"* — it has never heard of it. It
+encounters `B¸o c¸o tµi chÝnh` in a file it just read and needs something that
+recognises **that**. So the tool descriptions and the skill frontmatter contain the
+mojibake itself, the font names and the encoding names, and never lead with the product
+name. Tests assert that property, because it is easy to lose in an edit that is only
+trying to tighten wording.
+
+### No parsing behaviour changed
+
+Accuracy is unchanged from 0.1.14: 0.981 diacritic over 43 TCVN3 documents, 0.998 over
+4 VNI, 0.949 on the mixed-encoding one.
+
 ## [0.1.14] — 2026-08-02
 
 ### Added
@@ -394,7 +445,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.14...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.15...HEAD
+[0.1.15]: https://github.com/TrizenX/viparse/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/TrizenX/viparse/compare/v0.1.13...v0.1.14
 [0.1.13]: https://github.com/TrizenX/viparse/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/TrizenX/viparse/compare/v0.1.11...v0.1.12
