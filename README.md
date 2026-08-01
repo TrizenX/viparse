@@ -65,8 +65,12 @@ pip install "viparse[rtf]"         # RTF
 pip install "viparse[ocr]"         # scanned PDFs (needs the Tesseract binary)
 pip install "viparse[langchain]"   # LangChain document adapter
 pip install "viparse[llamaindex]"  # LlamaIndex document adapter
+pip install "viparse[mcp]"         # MCP server, for agents
 pip install "viparse[all]"         # every engine and adapter
 ```
+
+`mcp` is deliberately **not** in `all`: `all` is about parsing capability, and installing
+every format handler should not start pulling in a server runtime.
 
 Run `viparse doctor` to see which engines your installed extras enable.
 
@@ -105,6 +109,40 @@ from viparse.integrations.llamaindex import to_llamaindex_documents
 viparse ./docs/**/*.pdf -o md
 viparse doctor        # list available engines per installed extras
 ```
+
+## Using it from an agent
+
+```bash
+pip install "viparse[mcp]"
+viparse-mcp                        # stdio; also `python -m viparse.mcp`
+```
+
+Claude Desktop, Claude Code and anything else that speaks MCP:
+
+```json
+{ "mcpServers": { "viparse": { "command": "viparse-mcp" } } }
+```
+
+Four tools. `repair_garbled_vietnamese` takes a **string**, not a path, because most of
+the time the agent already has the broken text in context and there is no file to point
+at. `identify_vietnamese_encoding` names the encoding without changing anything, and
+returns a preview so its answer can be judged rather than trusted.
+`read_vietnamese_document` is `viparse.load` over a path. `viparse_version` is for bug
+reports.
+
+### If you change the tool descriptions, keep the symptom in them
+
+This is the one thing about `src/viparse/mcp/server.py` that is not obvious.
+
+An agent never thinks *"I should use viparse"* — it has never heard of it. It encounters
+`B¸o c¸o tµi chÝnh` in a file it just read and needs something that recognises that. So
+the descriptions are written around the **symptom**: the mojibake itself, the font names
+(`.VnTime`, `VNI-Times`), the encoding names. A description that says "parses Vietnamese
+documents" is invisible to an agent that does not know the product; one containing
+`tµi chÝnh` is found by pattern-matching the broken text.
+
+`tests/test_mcp.py` asserts the symptoms are present, because that property is easy to
+lose in an edit that is only trying to tighten the wording.
 
 ## Architecture
 
