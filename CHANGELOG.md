@@ -6,6 +6,28 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.7] — 2026-08-01
+
+Metadata only — `src/` is byte-identical to 0.1.6. Cut so PyPI stops publishing
+identity that points at the wrong place, since package metadata is what indexes
+and crawlers read.
+
+### Fixed
+
+- Every URL in `[project.urls]` still named the pre-transfer `minhtridinh-kayden`
+  account, so PyPI — and piwheels, which mirrors it — kept advertising a repo the
+  project no longer lives in. `Homepage` now points at the site, and `Issues` is
+  published for the first time (VIP-81).
+- The `author` field held a bare handle with no contactable address and no full
+  name, leaving anything that reads the metadata to infer one. It now carries the
+  author's name and a project address (VIP-81, VIP-82).
+
+### Added
+
+- `CITATION.cff`, validated against schema 1.2.0. It is the only metadata here
+  that separates family from given names, and GitHub renders it as a "Cite this
+  repository" button (VIP-82).
+
 ## [0.1.6] — 2026-07-28
 
 Documentation and tooling only — `src/` is byte-identical to 0.1.5, so upgrading changes
@@ -133,7 +155,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/TrizenX/viparse/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/TrizenX/viparse/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/TrizenX/viparse/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/TrizenX/viparse/compare/v0.1.3...v0.1.4
