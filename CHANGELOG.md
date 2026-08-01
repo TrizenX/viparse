@@ -6,6 +6,32 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.10] — 2026-08-01
+
+### Fixed
+
+- **VNI grave was mapped to a TCVN3 byte.** The table read `a½` for à. `0xBD` is TCVN3's
+  ẵ and has no role in VNI, which writes à as `aø` — 211 occurrences across the VNI
+  documents in [viparse-corpus](https://github.com/TrizenX/viparse-corpus) against zero
+  for `a½`.
+
+  Not a cosmetic error. The wrong entry occupied the grave slot, so `aø` was absent from
+  the table and à was never converted at all. On the two real VNI documents, diacritic
+  accuracy goes **0.234 → 0.291** and syllable 0.342 → 0.395 (VIP-89).
+
+  TCVN3 is unaffected.
+
+### Known limitation
+
+**VNI is still mostly unconverted.** The table holds five sequences plus `đ` where the
+encoding needs roughly fifty, so a VNI document comes back at **0.246** diacritic
+accuracy. Detection is not the gap — viparse identifies VNI at 0.95 confidence and then
+has almost nothing to convert it with. TCVN3, by comparison, is at 0.987.
+
+Closing it needs more VNI source documents than the two collected so far. Filling the
+remaining rows by symmetry is precisely how the `a½` entry came to be written, and that
+mistake has now been made twice in this project.
+
 ## [0.1.9] — 2026-08-01
 
 ### Fixed
@@ -202,7 +228,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/TrizenX/viparse/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/TrizenX/viparse/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/TrizenX/viparse/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/TrizenX/viparse/compare/v0.1.6...v0.1.7
