@@ -163,4 +163,4 @@ which SPEC section it implements.
 
 ## License
 
-[MIT](LICENSE) © 2026 minhtridinh
+[MIT](LICENSE) © 2026 Đinh Minh Trí (Kayden)

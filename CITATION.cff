@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use viparse in your work, please cite it as below."
+type: software
+title: viparse
+abstract: >-
+  A Vietnamese-first document loader for RAG. Converts legacy Vietnamese
+  encodings (TCVN3, VNI, VISCII, VPS) to Unicode NFC and extracts text from
+  DOCX, XLSX, PDF, scanned PDF, RTF and legacy .doc/.xls into Markdown, text
+  or JSON.
+authors:
+  - family-names: "Đinh"
+    given-names: "Minh Trí"
+    alias: Kayden
+    email: hello@trizenx.com
+repository-code: "https://github.com/TrizenX/viparse"
+url: "https://viparse.trizenx.com"
+license: MIT
+keywords:
+  - vietnamese
+  - rag
+  - document-parsing
+  - tcvn3
+  - vni
+  - viscii
+  - unicode-nfc
