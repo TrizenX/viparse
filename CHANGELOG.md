@@ -6,6 +6,51 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.20] — 2026-08-02
+
+### Added
+
+- **VNI gains `ẵ` and `Ẵ`.** 0.1.11 shipped the VNI table with `ẳ ẵ Ẳ Ẵ` deliberately
+  unmapped, because no collected document contained any of them. Reading a
+  mixed-encoding Lâm Đồng planning document later turned up `saün coù` (sẵn có) and
+  `Ñaø Naüng` (Đà Nẵng) — two different words, one a place name that settles it, both
+  invisible until the one file nobody could read got a transcript (VIP-111).
+
+  `ẳ` and `Ẳ` remain unobserved and remain unmapped. Unmatched input still passes
+  through unchanged, so a document containing them returns them unconverted rather than
+  silently wrong.
+
+### Fixed
+
+- **Spreadsheets emitted up to 88% tabs.** openpyxl reports a worksheet's *declared*
+  dimension, which routinely runs far wider than its content. On one real government
+  workbook every row came back padded to 256 columns:
+
+  | | before | after |
+  | --- | ---: | ---: |
+  | characters extracted | 177,515 | **29,332** |
+  | of which tabs | 157,184 (88%) | 9,002 |
+  | actual content | 15,566 | 15,566 |
+
+  A hand transcript of the same file is 29,530 characters. Trimmed sheet-wide rather
+  than per row, so the grid stays rectangular and a short row still lines up with the
+  columns above it.
+
+### What this does not fix
+
+**Trimming did not move the corpus score.** The padding was output noise, not the cause
+of the `.xls` diacritic figure — worth saying plainly, because the two are easy to
+conflate.
+
+The real cause is unfixed and now understood: **a spreadsheet cell is too short for
+per-block content detection**, so a VNI cell inside an otherwise TCVN3 workbook stays
+unconverted — `TOÅNG SOÁ` comes back as `TONG SO`. The 24-character floor that 0.1.16
+needed in order not to read `MôC LôC` as VNI is the same floor a spreadsheet cell cannot
+clear.
+
+`.xls` sits at **0.942** diacritic over 28 real documents. Every other format is above
+0.97.
+
 ## [0.1.19] — 2026-08-02
 
 ### Added
@@ -650,7 +695,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.19...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.20...HEAD
+[0.1.20]: https://github.com/TrizenX/viparse/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/TrizenX/viparse/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/TrizenX/viparse/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/TrizenX/viparse/compare/v0.1.16...v0.1.17
