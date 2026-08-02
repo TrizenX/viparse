@@ -780,3 +780,87 @@ def test_no_warning_for_other_latin_languages(text: str) -> None:
     warning about Spanish would be advice to corrupt it.
     """
     assert not _warned_unconverted(text)
+
+
+# --- Table blocks were invisible to content detection (VIP-113) ------------------------
+
+
+def _table_raw(*tables: tuple[list[list[str]], str | None]) -> RawExtraction:
+    """A workbook of table blocks, each with its own declared font."""
+    blocks: list[dict[str, Any]] = []
+    for rows, font in tables:
+        block: dict[str, Any] = {"type": "table", "rows": rows}
+        if font:
+            block["fonts"] = [font]
+        blocks.append(block)
+    text = "\n".join("\t".join(row) for rows, _ in tables for row in rows)
+    fonts = sorted({font for _, font in tables if font})
+    return RawExtraction(
+        source="a.xlsx",
+        content_type="application/vnd.xlsx",
+        text=text,
+        engine="xlsx",
+        signals={"fonts": fonts, "blocks": blocks},
+    )
+
+
+# A spreadsheet's cells, one per entry. Individually far too short to score — which is
+# what the length floor is for — but a sheet's worth of them is not.
+_LEGACY_CELLS = [
+    ["ChØ tiªu", "Sè liÖu"],
+    ["Tæng s¶n phÈm trong n­íc", "1234"],
+    ["§Çu t­ n­íc ngoµi", "567"],
+    ["Thu ng©n s¸ch nhµ n­íc", "890"],
+]
+# The same words in VNI, on a sheet whose font name names no encoding — the shape of a
+# real mixed workbook, where one sheet was typed on a different machine.
+_VNI_CELLS = [
+    ["Toång soá", "Soá lieäu"],
+    ["Toång saûn phaåm trong nöôùc", "1234"],
+    ["Ñaàu tö nöôùc ngoaøi", "567"],
+    ["Thu ngaân saùch nhaø nöôùc", "890"],
+]
+
+
+def test_a_table_block_is_read_by_its_cells() -> None:
+    """A table carries `rows` and no `text`, so asking it for text returned "".
+
+    Content detection needs characters to score, so it silently did nothing for every
+    table — and on a spreadsheet the table *is* the document. In a real mixed workbook a
+    VNI sheet inside an otherwise TCVN3 file stayed unconverted: `TOÅNG SOÁ` came back
+    as `TONG SO`.
+
+    Joining the cells is also what makes detection possible at all here. One cell is far
+    too short to score, which is what the length floor is for; a sheet is not.
+    """
+    normalized = VietnameseNormalizer().normalize(
+        _table_raw((_LEGACY_CELLS, ".VnTime"), (_VNI_CELLS, "VNSTCVN3")),
+        LoadOptions(encoding="auto"),
+    )
+    assert "Chỉ tiêu" in normalized.text
+    assert "Tổng số" in normalized.text
+
+
+def test_a_table_alone_in_a_document_of_other_latin_text_is_left_alone() -> None:
+    """Joining cells must not smuggle past the guards that protect good text.
+
+    Scoped to a document that is *only* the foreign table. A foreign block sitting
+    inside a legacy Vietnamese document still inherits its neighbour's encoding and is
+    converted — that predates reading tables at all, and an attempt to change it here
+    made things worse: treating "content detection declined" as "this is not Vietnamese"
+    took the whole corpus from 0.980 to 0.967, because most declines are ordinary
+    Vietnamese blocks that simply did not score well enough to be sure.
+
+    Separating the two would need the detector to say *why* it declined, which it does
+    not, and is worth doing properly rather than by guessing at the call site.
+    """
+    spanish = [
+        ["Señor Muñoz", "vivía en la mañana"],
+        ["con niños pequeños", "en España"],
+        ["la señora enseñaba", "español a los niños"],
+        ["en el año pasado", "con mucha paciencia"],
+    ]
+    normalized = VietnameseNormalizer().normalize(
+        _table_raw((spanish, "VNSTCVN3")), LoadOptions(encoding="auto")
+    )
+    assert "Señor" in normalized.text
