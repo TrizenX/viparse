@@ -6,6 +6,51 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.19] — 2026-08-02
+
+### Added
+
+- **PowerPoint: `.pptx` and legacy `.ppt`.** `.pptx` was recognised by format detection
+  and then failed with `EngineUnavailable` — a clean failure, but not support. A legacy
+  `.ppt` did not route anywhere: OLE2 was sorted into Word or Excel and PowerPoint
+  matched neither (VIP-109).
+
+  `PptxEngine` wraps `python-pptx` the way `DocxEngine` wraps `python-docx`: slides in
+  order, per-run font names as the signal the normalizer detects on, tables as table
+  blocks. Legacy `.ppt` reaches it through LibreOffice, the same path `.doc` takes to
+  DOCX.
+
+  Ships in the existing `office` extra — `pip install "viparse[office]"`.
+
+### Two structures a presentation has that a document does not
+
+Both are places text goes missing quietly, which is a defect this library has now fixed
+three times in other containers, so both are handled and tested rather than assumed.
+
+**Shapes can be grouped, and a group can nest.** A walk over top-level shapes only would
+drop everything inside one, and templates routinely put whole content areas in a group.
+
+**Speaker notes are text nobody sees on the slide.** Included, after the slide's own
+content and labelled with its number — the same reasoning as footnotes in 0.1.14. Text
+that is in the file and silently dropped is the worst outcome; inlining it would put the
+presenter's asides in the middle of the audience's text.
+
+**Run fonts fall back to the paragraph's.** In a legacy presentation the font is often
+set once on the paragraph rather than on each run, and reading the run alone loses the
+signal the normalizer needs.
+
+### Not measured
+
+There is no legacy PowerPoint in
+[viparse-corpus](https://github.com/TrizenX/viparse-corpus) — the collection sweeps
+targeted `.doc`, `.pdf`, `.rtf` and `.xls`. The engine is verified against a real `.ppt`
+produced by LibreOffice and against constructed fixtures, which is not the same as an
+accuracy figure, and this release does not claim one.
+
+Excel does have numbers now, from 28 real `.xls` documents: char 0.977, **diacritic
+0.939**, syllable 0.948 — with the caveat, recorded in the corpus, that a spreadsheet
+grid rendered two reasonable ways shifts the comparison in a way prose does not.
+
 ## [0.1.18] — 2026-08-02
 
 ### Added
@@ -605,7 +650,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.18...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.19...HEAD
+[0.1.19]: https://github.com/TrizenX/viparse/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/TrizenX/viparse/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/TrizenX/viparse/compare/v0.1.16...v0.1.17
 [0.1.16]: https://github.com/TrizenX/viparse/compare/v0.1.15...v0.1.16
