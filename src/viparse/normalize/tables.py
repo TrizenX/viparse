@@ -68,12 +68,51 @@ def _first_char_index(charmap: Charmap) -> dict[str, tuple[tuple[str, str], ...]
     return {first: tuple(items) for first, items in grouped.items()}
 
 
+# Codepoints a PDF text layer puts out in place of a legacy byte.
+#
+# A PDF stores glyph codes and the extractor resolves them through the font's encoding.
+# For `.VnTime` that turns TCVN3's `0xAD` — the soft-hyphen slot, which is the letter ư —
+# into U+2212 MINUS SIGN, and `0xB7` (ã) into U+2219 BULLET OPERATOR.
+#
+# This is the third mechanism by which the same letter goes missing. A legacy `.doc`
+# loses ư through `<w:softHyphen/>` (VIP-87); a PDF loses it here. Measured over the five
+# legacy PDFs in viparse-corpus: 129 occurrences of U+2212, every one of them a letter —
+# `nhµ n−íc` is nhà nước, `Thñ t−íng` is Thủ tướng, `Th«ng t−` is Thông tư.
+_GLYPH_SUBSTITUTIONS = {"\u2212": "\xad", "\u2219": "\xb7"}
+
+
+def _restore_substituted_glyphs(text: str) -> str:
+    """Undo the PDF glyph substitutions, but only where the result is a letter.
+
+    Adjacency decides, and it has to: a minus sign between digits is a minus sign, and a
+    statistics table full of them is exactly the kind of document this runs on. Across
+    the corpus PDFs no substituted codepoint sits between digits and none of the 129
+    genuine ones lacks a letter neighbour, so the rule separates them cleanly.
+
+    Only reached once a legacy encoding has been established — `convert` is not called
+    otherwise — so text that is already Unicode never passes through here.
+    """
+    if not any(char in text for char in _GLYPH_SUBSTITUTIONS):
+        return text
+    out = list(text)
+    for position, char in enumerate(text):
+        replacement = _GLYPH_SUBSTITUTIONS.get(char)
+        if replacement is None:
+            continue
+        before = text[position - 1] if position else ""
+        after = text[position + 1] if position + 1 < len(text) else ""
+        if before.isalpha() or after.isalpha():
+            out[position] = replacement
+    return "".join(out)
+
+
 def convert(text: str, charmap: Charmap, normalize_form: NormalizeForm = "NFC") -> str:
     """Convert legacy-encoded ``text`` to Unicode using ``charmap``, then normalize.
 
     A single left-to-right scan replaces each matched legacy sequence (longest
     first) with its Unicode form; unmatched characters pass through unchanged.
     """
+    text = _restore_substituted_glyphs(text)
     index = _first_char_index(charmap)
     out: list[str] = []
     position = 0
