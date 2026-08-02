@@ -180,3 +180,49 @@ def test_tcvn3_leaves_no_latin1_residue() -> None:
         converted = convert(legacy, _TCVN3)
         residue = {ch for ch in converted if 0xA0 < ord(ch) < 0x100 and ch not in _VALID_LATIN1_VN}
         assert not residue, f"unmapped after conversion of {legacy!r}: {sorted(residue)}"
+
+
+# --- Glyph substitutions a PDF text layer makes (VIP-105) -----------------------------
+
+# Words quoted from the legacy PDFs in viparse-corpus, with the reading a person gives
+# them. U+2212 stands where TCVN3 has 0xAD (ư) and U+2219 where it has 0xB7 (ã), because
+# a PDF stores glyph codes and the extractor resolves them through the font's encoding.
+_PDF_SUBSTITUTED = [
+    ("nhµ n−íc", "nhà nước"),
+    ("Thñ t−íng", "Thủ tướng"),
+    ("Th«ng t−", "Thông tư"),
+    ("céng hoµ x∙ héi", "cộng hoà xã hội"),
+    ("Quü b¶o l∙nh", "Quỹ bảo lãnh"),
+]
+
+
+@pytest.mark.parametrize(("surface", "expected"), _PDF_SUBSTITUTED)
+def test_pdf_glyph_substitutions_are_restored(surface: str, expected: str) -> None:
+    """The third mechanism by which ư goes missing.
+
+    A legacy `.doc` lost it through `<w:softHyphen/>`; a PDF loses it here. 129
+    occurrences across the five legacy PDFs in the corpus, every one a letter.
+    """
+    assert convert(surface, _TCVN3) == unicodedata.normalize("NFC", expected)
+
+
+def test_a_minus_sign_between_digits_is_left_alone() -> None:
+    """Adjacency decides, and it has to.
+
+    These documents are statistics tables. Restoring every U+2212 would turn a real
+    minus into ư and corrupt the numbers — trading one silent loss for another.
+    """
+    assert convert("t¨ng 5 − 3 phÇn tr¨m", _TCVN3) == "tăng 5 − 3 phần trăm"
+
+
+def test_substitutions_only_apply_during_legacy_conversion() -> None:
+    """Unicode text never reaches this code, because `convert` is not called on it.
+
+    Asserted at the seam rather than assumed: a minus sign in an already-Unicode
+    document must survive whatever this module does.
+    """
+    text = "Chỉ số tăng 5 − 3 điểm"
+    assert "−" in text
+    # No charmap is applied to Unicode, so the only way to reach `convert` is to ask for
+    # it explicitly — and even then, the digits protect the sign.
+    assert convert(text, _TCVN3) == text
