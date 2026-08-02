@@ -9,7 +9,7 @@
 **Website:** [viparse.trizenx.com](https://viparse.trizenx.com)
 
 One command turns any Vietnamese document — including legacy **TCVN3/VNI/VISCII** fonts, scanned
-PDFs, and old `.doc`/`.xls` files — into clean Unicode **NFC** Markdown/JSON, ready to push into a
+PDFs, and old `.doc`/`.xls`/`.ppt` files — into clean Unicode **NFC** Markdown/JSON, ready to push into a
 vector DB.
 
 ## Why
@@ -59,7 +59,7 @@ behind an extra:
 
 ```bash
 pip install viparse                # core — pure stdlib, no parser/OCR binaries
-pip install "viparse[office]"      # .docx / .xlsx and legacy .doc / .xls
+pip install "viparse[office]"      # .docx / .xlsx / .pptx and legacy .doc / .xls / .ppt
 pip install "viparse[pdf]"         # digital PDFs
 pip install "viparse[rtf]"         # RTF
 pip install "viparse[ocr]"         # scanned PDFs (needs the Tesseract binary)
@@ -180,9 +180,9 @@ walks it until one engine succeeds.
 
 | Module                  | Role                                                                          |
 | ----------------------- | ----------------------------------------------------------------------------- |
-| `detect.py`             | Magic-byte format detection (zip/OOXML, `%PDF`, OLE2 for legacy `.doc`)        |
+| `detect.py`             | Magic-byte format detection (zip/OOXML, `%PDF`, OLE2 for legacy `.doc`/`.ppt`) |
 | `registry.py`           | Priority-ordered engine registry and fallback chain                            |
-| `engines/`              | Thin adapters — `docx`, `xlsx`, `pdf`, `rtf`, `ocr`, `legacy`                  |
+| `engines/`              | Thin adapters — `docx`, `xlsx`, `pptx`, `pdf`, `rtf`, `ocr`, `legacy`          |
 | `normalize/`            | The moat: `detector`, `tcvn3`, `vni`, `viscii`, `vps`, `frequency`, `cleanup`  |
 | `structure/renderer.py` | Blocks → `text` / `markdown` (GFM tables) / versioned `json`                   |
 | `chunk.py`              | Section-aware, table-row-atomic chunking                                       |
