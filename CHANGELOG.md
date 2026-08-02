@@ -6,6 +6,67 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.17] — 2026-08-02
+
+### Fixed
+
+- **Every `ư` was lost from a legacy PDF, and some `ã`.** A PDF stores glyph codes and
+  the extractor resolves them through the font's encoding. For `.VnTime` that turns
+  TCVN3's `0xAD` — the soft-hyphen slot, which is the letter `ư` — into
+  `U+2212 MINUS SIGN`, and `0xB7` (`ã`) into `U+2219 BULLET OPERATOR` (VIP-105).
+
+  ```
+  nhµ n−íc         → nhà nước
+  Thñ t−íng        → Thủ tướng
+  Th«ng t−         → Thông tư
+  céng hoµ x∙ héi  → cộng hoà xã hội
+  ```
+
+  **This is the third mechanism by which the same letter goes missing.** A legacy `.doc`
+  loses `ư` through `<w:softHyphen/>` (0.1.9); a PDF loses it this way. 129 occurrences
+  across the five legacy PDFs now in
+  [viparse-corpus](https://github.com/TrizenX/viparse-corpus), where `ư` was the single
+  largest source of mismatch against the transcripts.
+
+  **Adjacency decides which occurrences are restored.** These documents are statistics
+  tables, so a minus sign between digits is a minus sign — restoring every `U+2212`
+  would trade one silent loss for another. Across the corpus PDFs no substituted
+  codepoint sits between digits, and none of the 129 genuine ones lacks a letter
+  neighbour.
+
+  `U+2030 PER MILLE` is deliberately not included: `0,4 ‰` in a growth statistic is a
+  real per mille sign. The test for membership is that every occurrence reads as a
+  Vietnamese letter in context, not that the codepoint looks unusual.
+
+  Applied only once a legacy encoding has been established, so Unicode text is never
+  touched.
+
+### Measured
+
+The corpus now covers four real formats instead of one. `.doc` reaches the DOCX engine
+through LibreOffice, so until this release only that path had real-document coverage.
+
+| Format | documents | char | diacritic |
+| --- | ---: | ---: | ---: |
+| `.doc` TCVN3 | 44 | 0.969 | 0.975 |
+| `.doc` VNI | 4 | 0.984 | 0.998 |
+| `.rtf` | 11 | 0.991 | 0.996 |
+| `.pdf`, `encoding="auto"` | 5 | 0.991 | **0.999** |
+| `.pdf`, default | 5 | 0.986 | 0.975 |
+
+### Two things those numbers say that the headline does not
+
+**RTF needs `encoding="auto"`.** Its engine deliberately emits no font signal, because
+an RTF font table lists the fonts a document *declares* rather than the fonts applied to
+text. In default mode a legacy `.rtf` comes back as mojibake with no warning.
+
+**Two of the five PDFs embed subsetted fonts that expose no legacy name**, so
+default-mode detection misses them entirely. That is the gap between the two `.pdf` rows
+— not the defect fixed above.
+
+PowerPoint still has no engine: `.pptx` is recognised and then fails with
+`EngineUnavailable`.
+
 ## [0.1.16] — 2026-08-02
 
 ### Fixed
@@ -497,7 +558,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.16...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.17...HEAD
+[0.1.17]: https://github.com/TrizenX/viparse/compare/v0.1.16...v0.1.17
 [0.1.16]: https://github.com/TrizenX/viparse/compare/v0.1.15...v0.1.16
 [0.1.15]: https://github.com/TrizenX/viparse/compare/v0.1.14...v0.1.15
 [0.1.14]: https://github.com/TrizenX/viparse/compare/v0.1.13...v0.1.14
