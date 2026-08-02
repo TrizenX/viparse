@@ -148,6 +148,11 @@ def _usable_runs(block: dict[str, Any]) -> list[dict[str, Any]] | None:
 # known patterns is an absence of evidence, not evidence of absence.
 _NO_FONT_EVIDENCE = ("no-legacy-font", "assumed-unicode")
 
+# How much text the unconverted-legacy warning scores. Enough to be decisive — detection
+# is unreliable on fragments — and bounded, because this runs on every document that was
+# *not* converted, which is most of them.
+_WARN_SAMPLE_CHARS = 4000
+
 # Below this many characters, content detection is guessing. Measured on a real
 # mixed-encoding document: at block level it agreed with a hand-built classifier on 93.6%
 # of characters, but the median *run* there is 51 characters and 22% are under 20, and
@@ -334,6 +339,7 @@ class VietnameseNormalizer:
             if per_block is not None:
                 blocks, text, encoding, confidence = per_block
                 self._warn_low_confidence(confidence, warnings)
+                self._warn_unconverted_legacy(text, encoding, form, warnings)
                 return self._build(raw, text, encoding, confidence, warnings, blocks)
 
             encoding = detection.encoding
@@ -353,6 +359,7 @@ class VietnameseNormalizer:
         blocks = [_normalize_block(b, charmap, form) for b in raw_blocks] if raw_blocks else []
 
         self._warn_low_confidence(confidence, warnings)
+        self._warn_unconverted_legacy(text, encoding, form, warnings)
         return self._build(raw, text, encoding, confidence, warnings, blocks)
 
     def _normalize_mixed_blocks(
@@ -437,6 +444,44 @@ class VietnameseNormalizer:
             # per-block path never lands here (font detection yields registered tables).
             warnings.append(f"no conversion table for encoding {encoding!r}; text left unconverted")
         return charmap
+
+    @staticmethod
+    def _warn_unconverted_legacy(
+        text: str, encoding: str | None, form: NormalizeForm, warnings: list[str]
+    ) -> None:
+        """Say so when legacy text is handed back untouched.
+
+        Two real cases return mojibake with nothing to indicate it. An RTF names fonts it
+        merely *declares*, so its engine emits no signal by design and a legacy `.rtf`
+        comes back raw. And a PDF can embed subsetted fonts that expose no legacy name —
+        two of the five legacy PDFs in viparse-corpus do — so the font path misses them
+        entirely.
+
+        In both the output reads as Vietnamese-shaped nonsense, which is the hardest
+        failure to notice: nothing errors, nothing is empty, and the text is the right
+        length. A warning turns a silent wrong answer into a visible one.
+
+        The check is the *same* content detection `encoding="auto"` would have run, so it
+        inherits the guards that keep Spanish and German out — a document this warns
+        about is one that opting in would actually have converted. It never converts
+        anything itself.
+        """
+        if encoding is not None or not text:
+            return
+        detection = detect_encoding_by_content(
+            clean_text(
+                text[:_WARN_SAMPLE_CHARS],
+                form,
+                preserve=control_chars_in(AUTO_DETECT_CHARMAPS),
+            ),
+            AUTO_DETECT_CHARMAPS,
+        )
+        if detection.encoding is None:
+            return
+        warnings.append(
+            f"text looks like {detection.encoding} and was returned unconverted; "
+            f'pass encoding="{detection.encoding}" or encoding="auto" to convert it'
+        )
 
     @staticmethod
     def _warn_low_confidence(confidence: float, warnings: list[str]) -> None:
