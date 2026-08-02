@@ -170,3 +170,45 @@ def test_missing_dependency_raises_clear_error(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setitem(sys.modules, "openpyxl", None)
     with pytest.raises(MissingDependency, match=r"viparse\[office\]"):
         XlsxEngine().extract("missing.xlsx", LoadOptions())
+
+
+# --- Trailing empty columns (VIP-111) -------------------------------------------------
+
+
+def test_trailing_empty_columns_are_dropped(tmp_path: Path) -> None:
+    """openpyxl reports the declared dimension, which runs far wider than the content.
+
+    On one real government workbook every row came back padded to 256 columns and **88%
+    of the extracted characters were tabs** — 157,184 of 177,515, against 15,566
+    characters of actual content. That is not a rounding error in output meant to be
+    chunked and embedded.
+    """
+    openpyxl = pytest.importorskip("openpyxl")
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet["A1"], sheet["B1"] = "Chỉ tiêu", "Số liệu"
+    # Touching a far cell is enough to widen the declared dimension, which is how real
+    # workbooks acquire theirs.
+    sheet.cell(row=1, column=60).value = None
+    sheet.cell(row=2, column=60).value = None
+    source = tmp_path / "wide.xlsx"
+    workbook.save(str(source))
+
+    raw = XlsxEngine().extract(source, LoadOptions())
+    table = next(b for b in raw.signals["blocks"] if b["type"] == "table")
+    assert all(len(row) == 2 for row in table["rows"])
+
+
+def test_a_row_shorter_than_the_sheet_is_padded_not_ragged(tmp_path: Path) -> None:
+    """The grid stays rectangular, so a short row still lines up with the columns above."""
+    openpyxl = pytest.importorskip("openpyxl")
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet["A1"], sheet["B1"], sheet["C1"] = "a", "b", "c"
+    sheet["A2"] = "d"
+    source = tmp_path / "ragged.xlsx"
+    workbook.save(str(source))
+
+    raw = XlsxEngine().extract(source, LoadOptions())
+    table = next(b for b in raw.signals["blocks"] if b["type"] == "table")
+    assert [len(row) for row in table["rows"]] == [3, 3]

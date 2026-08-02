@@ -70,7 +70,7 @@ def test_vni_converts_words_taken_from_real_documents(surface: str, expected: st
 # an absent entry is indistinguishable from a forgotten one unless something records
 # the difference. If a VNI document containing one of these is ever collected, this
 # test is the thing that should fail.
-_VNI_KNOWN_GAPS = ["ẳ", "ẵ", "Ẳ", "Ẵ"]
+_VNI_KNOWN_GAPS = ["ẳ", "Ẳ"]
 
 
 @pytest.mark.parametrize("letter", _VNI_KNOWN_GAPS)
@@ -103,6 +103,10 @@ _VNI_PHRASES_FROM_REAL_DOCUMENTS = [
     ("Caên cöù Luaät Toå chöùc HÑND vaø UBND", "Căn cứ Luật Tổ chức HĐND và UBND"),
     ("quyeát ñònh naøy coù hieäu löïc", "quyết định này có hiệu lực"),
     ("nghæ maát söùc", "nghỉ mất sức"),
+    # ẵ. Invisible until the mixed-encoding Lâm Đồng document got a transcript — both
+    # occurrences in the whole corpus sit in the one file nobody could read.
+    ("saün coù", "sẵn có"),
+    ("Ñaø Naüng", "Đà Nẵng"),
 ]
 
 

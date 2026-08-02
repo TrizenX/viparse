@@ -31,10 +31,17 @@ entry below carries either its **occurrence count** in that corpus or the marker
 
 Known gaps
 ----------
-**ẳ ẵ Ẳ Ẵ are deliberately absent.** No VNI document collected so far contains
-any of them, and every one of the 25 distinct modifier characters that *does*
-follow a base vowel in that corpus is already mapped here — so these are
-unobserved rather than overlooked. Filling them by symmetry with the ắ/ằ/ặ row
+**ẳ and Ẳ are deliberately absent.** No VNI document collected so far contains
+either, and every one of the distinct modifier characters that *does* follow a
+base vowel in that corpus is already mapped here — so they are unobserved rather
+than overlooked.
+
+``ẵ`` was in that list until a mixed-encoding Lâm Đồng planning document was read:
+``saün coù`` is sẵn có and ``Ñaø Naüng`` is Đà Nẵng. Two different words, one of
+them a place name that settles it, and both invisible until the one file nobody
+could read got a transcript. ``Ẵ`` follows the uppercase rule observed 42 times.
+
+Filling the remaining row by symmetry with the ắ/ằ/ặ row
 is exactly how the old ``a½`` entry came to be written: ``0xBD`` is a TCVN3 byte
 (ẵ there), it appears in no VNI document, and because it occupied the grave slot
 the correct ``aø`` was missing and à was never converted at all (VIP-89).
@@ -70,6 +77,7 @@ _ENTRIES = [
     ("aà", "ầ"),  # ×43
     ("aå", "ẩ"),  # ×35
     ("aé", "ắ"),  # ×29
+    ("aü", "ẵ"),  # ×2
     ("aë", "ặ"),  # ×29
     ("AØ", "À"),  # ×27
     ("aè", "ằ"),  # ×16
@@ -87,6 +95,7 @@ _ENTRIES = [
     ("AÃ", "Ẫ"),  # derived
     ("AÉ", "Ắ"),  # derived
     ("AÈ", "Ằ"),  # derived
+    ("AÜ", "Ẵ"),  # derived
     ("AË", "Ặ"),  # derived
     # --- e ê -------------------------------------------------------
     ("eä", "ệ"),  # ×466

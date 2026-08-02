@@ -109,7 +109,37 @@ def _sheet_rows(value_sheet: Any, formula_sheet: Any) -> tuple[list[list[str]], 
                 uncomputed = True
             cells.append(_cell_text(value))
         rows.append(cells)
-    return _trim_trailing_empty_rows(rows), fonts, uncomputed
+    return _trim_trailing_empty_columns(_trim_trailing_empty_rows(rows)), fonts, uncomputed
+
+
+def _trim_trailing_empty_columns(rows: list[list[str]]) -> list[list[str]]:
+    """Drop columns past the last one holding anything, across the whole sheet.
+
+    openpyxl reports a worksheet's declared dimension, which routinely runs far wider
+    than its content: on one real government workbook every row came back padded to 256
+    columns, and **88% of the extracted characters were tabs** — 157,184 of 177,515,
+    against 15,566 characters of actual content.
+
+    That is not a rounding error in an output meant to be chunked and embedded. It also
+    made the file disagree with a transcript on layout rather than on text, which is a
+    misleading way to fail.
+
+    Trimmed sheet-wide rather than per row, so the grid stays rectangular and a short
+    row still lines up with the columns above it.
+    """
+    width = max((len(row) - _trailing_blanks(row) for row in rows), default=0)
+    if width == 0:
+        return []
+    return [row[:width] + [""] * (width - len(row)) for row in rows]
+
+
+def _trailing_blanks(row: list[str]) -> int:
+    count = 0
+    for cell in reversed(row):
+        if cell.strip():
+            break
+        count += 1
+    return count
 
 
 def _has_formula_cell(workbook: Any) -> bool:
