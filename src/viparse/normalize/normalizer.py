@@ -183,6 +183,23 @@ def _content_encoding(text: str, form: NormalizeForm) -> str | None:
     return detection.encoding
 
 
+def _detectable_text(block: dict[str, Any]) -> str:
+    """The block's text, whatever shape the block is.
+
+    A table block carries ``rows`` and no ``text`` key, so asking it for ``text`` returns
+    the empty string — and content detection, which needs characters to score, silently
+    did nothing for every table. On a spreadsheet that is the whole document: a legacy
+    cell inside an otherwise-Unicode workbook stayed unconverted, and `TOÅNG SOÁ` came
+    back as `TONG SO`.
+
+    Joining the cells is also what makes detection *possible* here. A cell is far too
+    short to score — that is why the length floor exists — but a sheet is not.
+    """
+    if block.get("type") == "table":
+        return "\n".join("\t".join(str(cell) for cell in row) for row in block.get("rows", []))
+    return str(block.get("text", ""))
+
+
 def _plan_block(
     block: dict[str, Any],
     doc: EncodingDetection,
@@ -200,7 +217,7 @@ def _plan_block(
     fallback = doc.encoding
     if form is not None:
         # Detected once per block, not per run — see _MIN_CONTENT_CHARS.
-        fallback = _content_encoding(block.get("text", ""), form) or carried or doc.encoding
+        fallback = _content_encoding(_detectable_text(block), form) or carried or doc.encoding
     runs = _usable_runs(block)
     if runs is not None:
         # A run carries at most one font, so its detection is never ``font-signal-mixed``.
