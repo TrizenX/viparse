@@ -6,6 +6,51 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.21] — 2026-08-02
+
+### Fixed
+
+- **Tables were invisible to content detection.** A table block carries `rows` and no
+  `text` key, and the per-block content fallback asked it for `block.get("text", "")`.
+  It got the empty string, scored nothing, and silently declined — for every table in
+  every document (VIP-113).
+
+  On a spreadsheet the table *is* the document, so this was the whole of it: a VNI sheet
+  inside an otherwise TCVN3 workbook stayed unconverted, and `TOÅNG SOÁ` came back as
+  `TONG SO`.
+
+  Joining the cells is also what makes detection possible at that granularity. One cell
+  is far too short to score — that is what the 24-character floor added in 0.1.16 is for
+  — but a sheet is not.
+
+### Measured
+
+Over the 93 real documents in
+[viparse-corpus](https://github.com/TrizenX/viparse-corpus), diacritic accuracy:
+
+| Format | documents | 0.1.20 | 0.1.21 |
+| --- | ---: | ---: | ---: |
+| `.doc` | 48 | 0.972 | **0.976** |
+| `.rtf` | 11 | 0.996 | 0.996 |
+| `.pdf` | 5 | 0.999 | 0.999 |
+| `.xls` | 28 | 0.942 | **0.979** |
+| `.ppt` | 1 | 1.000 | 1.000 |
+| **all** | **93** | 0.980 | **0.983** |
+
+Word tables benefited too — this was never only a spreadsheet problem. A loader that
+extracts the bytes faithfully and ignores the encoding scores **0.019** on the same set.
+
+### One thing tried and reverted
+
+A foreign-language block sitting inside a legacy Vietnamese document still inherits its
+neighbour's encoding and is converted. Treating "content detection declined" as "this is
+not Vietnamese" looked like the fix and made things worse — the corpus went from 0.980
+to 0.967, because most declines are ordinary Vietnamese blocks that simply did not score
+well enough to be sure.
+
+Separating the two needs the detector to say *why* it declined, which it does not. Left
+as a known limitation with a test covering the case, rather than guessed at.
+
 ## [0.1.20] — 2026-08-02
 
 ### Added
@@ -695,7 +740,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.20...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.21...HEAD
+[0.1.21]: https://github.com/TrizenX/viparse/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/TrizenX/viparse/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/TrizenX/viparse/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/TrizenX/viparse/compare/v0.1.17...v0.1.18
