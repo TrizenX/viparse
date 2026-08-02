@@ -47,6 +47,15 @@ def _install_soffice(monkeypatch: pytest.MonkeyPatch, *, kind: str, text: str) -
             document = docx.Document()
             document.add_paragraph(text)
             document.save(str(dest))
+        elif kind == "pptx":
+            import pptx
+            from pptx.util import Inches
+
+            presentation = pptx.Presentation()
+            slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+            box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(1))
+            box.text_frame.text = text
+            presentation.save(str(dest))
         else:
             wb = openpyxl.Workbook()
             wb.active["A1"] = text
@@ -84,8 +93,24 @@ def test_xls_converts_and_delegates_to_xlsx(
     assert "Bảng cũ" in raw.text
 
 
-def test_unrecognized_ole2_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_legacy_powerpoint_routes_to_the_pptx_engine(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A `.ppt` reaches PPTX the way a `.doc` reaches DOCX (VIP-109).
+
+    This stream used to be the example of an *unrecognised* container, because
+    PowerPoint had no engine at all — `.pptx` was detected and then failed with
+    `EngineUnavailable`.
+    """
     _install_olefile(monkeypatch, ["PowerPoint Document"])
+    _install_soffice(monkeypatch, kind="pptx", text="Trình bày cũ")
+    raw = LegacyOfficeEngine().extract(_doc(tmp_path), LoadOptions())
+    assert raw.engine == "libreoffice"
+    assert "Trình bày cũ" in raw.text
+
+
+def test_unrecognized_ole2_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _install_olefile(monkeypatch, ["VisioDocument"])
     with pytest.raises(ExtractionError, match="unrecognized OLE2"):
         LegacyOfficeEngine().extract(_doc(tmp_path), LoadOptions())
 

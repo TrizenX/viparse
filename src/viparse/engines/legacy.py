@@ -23,6 +23,7 @@ from typing import Any
 
 from viparse.detect import CONTENT_TYPE_OLE2
 from viparse.engines.docx import DocxEngine
+from viparse.engines.pptx import PptxEngine
 from viparse.engines.xlsx import XlsxEngine
 from viparse.errors import ExtractionError, MissingDependency
 from viparse.model import RawExtraction
@@ -40,6 +41,9 @@ _INSTALL_HINT = (
 # OLE2 stream names that identify the document kind, mapped to (target extension, engine).
 _WORD_STREAMS = frozenset({"WordDocument"})
 _EXCEL_STREAMS = frozenset({"Workbook", "Book"})
+# PowerPoint 97 names its main stream "PowerPoint Document", space included. Only that
+# one: "Current User" also appears in a .ppt but is too generic a name to route on.
+_POWERPOINT_STREAMS = frozenset({"PowerPoint Document"})
 
 
 def _import_olefile() -> Any:
@@ -75,13 +79,15 @@ class LegacyOfficeEngine:
         )
 
 
-def _classify(olefile: Any, source: Source) -> tuple[str, DocxEngine | XlsxEngine]:
+def _classify(olefile: Any, source: Source) -> tuple[str, DocxEngine | XlsxEngine | PptxEngine]:
     """Determine (target extension, delegate engine) from the OLE2 document's streams."""
     streams = _ole_streams(olefile, source)
     if streams & _WORD_STREAMS:
         return "docx", DocxEngine()
     if streams & _EXCEL_STREAMS:
         return "xlsx", XlsxEngine()
+    if streams & _POWERPOINT_STREAMS:
+        return "pptx", PptxEngine()
     raise ExtractionError(f"unrecognized OLE2 document (streams: {sorted(streams)}): {source!s}")
 
 

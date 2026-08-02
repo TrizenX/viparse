@@ -11,6 +11,7 @@ from viparse.engines.docx import DocxEngine
 from viparse.engines.legacy import LegacyOfficeEngine
 from viparse.engines.ocr import OcrEngine
 from viparse.engines.pdf import PdfEngine
+from viparse.engines.pptx import PptxEngine
 from viparse.engines.xlsx import XlsxEngine
 from viparse.errors import (
     ConfigError,
@@ -85,6 +86,7 @@ __all__ = [
     "OutputFormat",
     "Paragraph",
     "PdfEngine",
+    "PptxEngine",
     "Pipeline",
     "PipelineMetrics",
     "RawExtraction",
