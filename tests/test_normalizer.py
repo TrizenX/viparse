@@ -729,3 +729,54 @@ def test_default_mode_is_unaffected_by_all_of_this() -> None:
     normalized = VietnameseNormalizer().normalize(_raw(_TCVN3_HEADER, ["Helvetica"]), LoadOptions())
     assert normalized.encoding_detected is None
     assert normalized.text == _TCVN3_HEADER
+
+
+# --- Saying so when legacy text is handed back untouched (VIP-107) ---------------------
+
+
+def _warnings(text: str, fonts: list[str], **options: Any) -> list[str]:
+    return VietnameseNormalizer().normalize(_raw(text, fonts), LoadOptions(**options)).warnings
+
+
+def _warned_unconverted(text: str, fonts: list[str] | None = None, **options: Any) -> bool:
+    return any("returned unconverted" in w for w in _warnings(text, fonts or [], **options))
+
+
+def test_unconverted_legacy_text_is_warned_about() -> None:
+    """Two real cases return mojibake with nothing to indicate it.
+
+    An RTF names fonts it merely *declares*, so its engine emits no signal by design;
+    and a PDF can embed subsetted fonts exposing no legacy name — two of the five legacy
+    PDFs in the corpus do. In both the output reads as Vietnamese-shaped nonsense, which
+    is the hardest failure to notice: nothing errors, nothing is empty, the length is
+    right.
+    """
+    assert _warned_unconverted(_TCVN3_HEADER)
+
+
+def test_the_warning_names_the_encoding_and_the_fix() -> None:
+    """A warning a caller cannot act on is noise."""
+    warning = next(w for w in _warnings(_TCVN3_HEADER, []) if "returned unconverted" in w)
+    assert "tcvn3" in warning
+    assert 'encoding="auto"' in warning
+
+
+def test_no_warning_once_the_text_has_been_converted() -> None:
+    assert not _warned_unconverted(_TCVN3_HEADER, encoding="tcvn3")
+    assert not _warned_unconverted(_TCVN3_HEADER, encoding="auto")
+
+
+def test_no_warning_for_text_that_is_already_correct() -> None:
+    """Unicode Vietnamese, and plain ASCII, are not failures to report."""
+    assert not _warned_unconverted(_TCVN3_HEADER_READ)
+    assert not _warned_unconverted("An ordinary English sentence with nothing unusual.")
+
+
+@pytest.mark.parametrize("text", _NOT_VIETNAMESE)
+def test_no_warning_for_other_latin_languages(text: str) -> None:
+    """The check reuses `encoding="auto"`'s detection, so it inherits its guards.
+
+    A document this warns about is one that opting in would actually have converted —
+    warning about Spanish would be advice to corrupt it.
+    """
+    assert not _warned_unconverted(text)

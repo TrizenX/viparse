@@ -190,6 +190,26 @@ walks it until one engine succeeds.
 | `cache.py`              | Opt-in content-hash cache keyed by hash + options + schema version             |
 | `pipeline.py`           | The orchestrator, error policy and metrics hooks                               |
 
+### When it hands text back unconverted, it says so
+
+Two real cases return mojibake and nothing else would tell you. An RTF font table lists
+the fonts a document *declares* rather than the fonts applied to text, so the RTF engine
+emits no signal by design; and a PDF can embed subsetted fonts that expose no legacy
+name. In both, the output reads as Vietnamese-shaped nonsense — nothing errors, nothing
+is empty, the length is right — which is the hardest failure to notice.
+
+So a document that comes back unconverted is scored the way `encoding="auto"` would have
+scored it, and if that would have found a legacy encoding you get a warning naming it
+and the fix:
+
+```
+text looks like tcvn3 and was returned unconverted;
+pass encoding="tcvn3" or encoding="auto" to convert it
+```
+
+It never converts anything, and it reuses `auto`'s guards — so a Spanish document does
+not get advice that would corrupt it.
+
 ### How encoding detection decides
 
 The primary signal is the **font name** the extraction engine carries out of the document: a
