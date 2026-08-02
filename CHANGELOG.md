@@ -6,6 +6,53 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.18] — 2026-08-02
+
+### Added
+
+- **A document handed back unconverted now says so.** Two real cases returned mojibake
+  with nothing to indicate it (VIP-107).
+
+  An RTF font table lists the fonts a document *declares* rather than the fonts applied
+  to text, so the RTF engine emits no signal by design and a legacy `.rtf` came back
+  raw. And a PDF can embed subsetted fonts that expose no legacy name — two of the five
+  legacy PDFs in [viparse-corpus](https://github.com/TrizenX/viparse-corpus) do — so the
+  font path missed them entirely.
+
+  In both, the output reads as Vietnamese-shaped nonsense: nothing errors, nothing is
+  empty, the length is right. A caller sees plausible output and has no reason to look
+  further, which is the hardest failure to notice.
+
+  A document that comes back unconverted is now scored the way `encoding="auto"` would
+  have scored it, and if that would have found a legacy encoding the result carries:
+
+  ```
+  text looks like tcvn3 and was returned unconverted;
+  pass encoding="tcvn3" or encoding="auto" to convert it
+  ```
+
+  Naming both the encoding and the fix, because a warning a caller cannot act on is
+  noise. **It converts nothing itself**, and default behaviour is otherwise unchanged.
+
+  Across the 76 documents in the corpus at default settings, 13 come back unconverted —
+  11 RTF and 2 font-subset PDF. All 13 now warn; none is silent.
+
+### Why it will not become noise
+
+The check reuses `encoding="auto"`'s detection, so it inherits that path's guards: **a
+document it warns about is one that opting in would actually have converted.** Warning
+about a Spanish document would be advice to corrupt it. Tests hold that line for
+Spanish, German and French, and for Unicode Vietnamese and plain ASCII.
+
+Bounded to the first 4,000 characters — it runs on every document that was *not*
+converted, which is most of them. A 248,000-character Unicode document normalizes in
+36.6 ms with the check in place.
+
+### Unchanged
+
+No accuracy number moves: `.doc` TCVN3 0.975, VNI 0.998, `.rtf` 0.996, `.pdf` 0.999 with
+`encoding="auto"`. This release changes what viparse *tells you*, not what it returns.
+
 ## [0.1.17] — 2026-08-02
 
 ### Fixed
@@ -558,7 +605,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.17...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.18...HEAD
+[0.1.18]: https://github.com/TrizenX/viparse/compare/v0.1.17...v0.1.18
 [0.1.17]: https://github.com/TrizenX/viparse/compare/v0.1.16...v0.1.17
 [0.1.16]: https://github.com/TrizenX/viparse/compare/v0.1.15...v0.1.16
 [0.1.15]: https://github.com/TrizenX/viparse/compare/v0.1.14...v0.1.15
