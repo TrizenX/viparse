@@ -184,7 +184,7 @@ tiếng Tây Ban Nha sẽ không nhận được lời khuyên làm hỏng chín
 
 ## Về con số độ chính xác
 
-[viparse-corpus](https://github.com/TrizenX/viparse-corpus) công bố **0.982** độ chính xác
+[viparse-corpus](https://github.com/TrizenX/viparse-corpus) công bố **0.986** độ chính xác
 dấu thanh trên 96 văn bản nhà nước Việt Nam (2002–2009) được chép tay lại, thuộc năm định
 dạng thật — `.doc`, `.xls`, `.rtf`, `.pdf`, `.ppt` — so với **0.019** của chính bộ đọc đó
 khi tắt phần chuyển bảng mã. Hai hàng được chấm trên đúng cùng 96 tài liệu, bằng đúng một
@@ -225,22 +225,25 @@ ghép đúng ý đồ: họ biết chữ nằm ở đâu, viparse biết những
 **Hoàn toàn không đụng tới:** hình minh hoạ và biểu đồ nhúng, công thức, thứ tự đọc của
 bố cục xoay hoặc tự do, và chữ viết tay.
 
-**OCR là phần yếu nhất ở đây, và con số nói đúng như vậy.** `viparse[ocr]` đọc được PDF
-scan và file ảnh (`.png` / `.jpg` / `.tif`, kể cả TIFF nhiều trang). Đo trên
-[bản chép tay được kết xuất lại](https://github.com/TrizenX/viparse-corpus/tree/main/ocr):
+**OCR đã được đo.** `viparse[ocr]` đọc được PDF scan và file ảnh (`.png` / `.jpg` / `.tif`,
+kể cả TIFF nhiều trang). Đo trên
+[corpus](https://github.com/TrizenX/viparse-corpus/tree/main/ocr):
 
-| kiểu kết xuất | số tài liệu | **dấu thanh** |
+| đối tượng | số tài liệu | **dấu thanh** |
 | --- | ---: | ---: |
-| sạch, văn xuôi | 65 | **0.967** |
-| có nhiễu, văn xuôi | 65 | **0.898** |
-| đường chuyển bảng mã, để so | 96 | **0.982** |
+| **bản scan thật** | **2** | **0.968** |
+| trang kết xuất | 96 | **0.990** |
+| đường chuyển bảng mã, để so | 96 | **0.986** |
 
-**0.967 là mức trần**, không phải kết quả thường gặp: nó đến từ một trang kết xuất hoàn
-hảo, không lệch, không nhiễu cảm biến, không vân giấy, với phông chữ Tesseract đọc dễ.
-Bản scan thật sẽ tệ hơn, và **chưa có tài liệu tiếng Việt scan thật nào được đo cả**.
+Hai bản scan là **mức sàn cho các con số kết xuất, không phải một benchmark** — cả hai đều
+là một trang, được chép tay từ ảnh **trước khi** chạy OCR. Khoảng cách 0.968 so với 0.990
+là cái giá xấp xỉ của một trang thật.
 
-Lỗi gần như toàn bộ nằm ở dấu thanh, theo cả hai chiều — thêm dấu hỏi vào chữ `i` 93 lần,
-làm rơi dấu khỏi `ề`/`ầ`/`ồ` 60 lần — tức là đúng vào thứ mà sản phẩm này sinh ra để giữ.
+Lỗi còn lại gần như toàn bộ nằm ở dấu thanh, theo cả hai chiều — thêm dấu hỏi vào chữ `i`,
+làm rơi dấu khỏi `ề`/`ầ`/`ồ` — tức đúng vào thứ sản phẩm này sinh ra để giữ.
+
+Bản trước của mục này gọi OCR là phần yếu nhất và ghi 0.967 / 0.898. Những con số đó đến
+từ một lỗi trong bộ chấm điểm của corpus, không phải từ viparse, và đã được rút lại.
 
 ## Nguyên tắc thiết kế
 

@@ -55,7 +55,7 @@ docs = [viparse.fix(doc.page_content) for doc in some_other_loader.load()]
 already Unicode, and text that is not Vietnamese, come back unchanged.
 
 **On accuracy claims.** [viparse-corpus](https://github.com/TrizenX/viparse-corpus) publishes
-**0.982** diacritic accuracy over 96 hand-transcribed Vietnamese government documents in five real
+**0.986** diacritic accuracy over 96 hand-transcribed Vietnamese government documents in five real
 formats, against **0.019** for the same reader with conversion switched off. Both rows are scored
 on the same 96 documents by the same published command, one flag apart. That is
 a claim about viparse, not a comparison: **no other tool has been run against that corpus.** A
@@ -210,23 +210,27 @@ is, viparse knows what the bytes mean.
 **Not attempted at all:** figures and embedded images, formula recovery, reading order for
 rotated or freeform layouts, and handwriting.
 
-**OCR is the weakest path here, and the number says so.** `viparse[ocr]` reads a scanned
-PDF and a page image (`.png` / `.jpg` / `.tif`, including multi-page TIFF). Measured
-against [rendered transcripts](https://github.com/TrizenX/viparse-corpus/tree/main/ocr):
+**OCR is measured.** `viparse[ocr]` reads a scanned PDF and a page image (`.png` / `.jpg`
+/ `.tif`, including multi-page TIFF). Against
+[the corpus](https://github.com/TrizenX/viparse-corpus/tree/main/ocr):
 
-| render | documents | **diacritic** |
+| subject | documents | **diacritic** |
 | --- | ---: | ---: |
-| clean, prose | 65 | **0.967** |
-| degraded, prose | 65 | **0.898** |
-| conversion path, for comparison | 96 | **0.982** |
+| **real scans** | **2** | **0.968** |
+| rendered pages | 96 | **0.990** |
+| conversion path, for comparison | 96 | **0.986** |
 
-**0.967 is a ceiling**, not a typical result: it comes from a perfectly rendered page with
-no skew, no sensor noise and no paper texture, in a font Tesseract finds easy. A real scan
-does worse, and no real scanned Vietnamese document has been measured at all.
+Two real scans is a **floor under the rendered figures, not a benchmark** — both are single
+pages, hand-transcribed from the image before OCR was run on them. The gap between 0.968
+and 0.990 is roughly what a real page costs.
 
-The errors are almost entirely tone marks, in both directions — a hook invented on bare
-`i` 93 times, the tone dropped from `ề`/`ầ`/`ồ` 60 times — which is exactly what this
-product exists to preserve.
+The remaining errors are almost entirely tone marks, in both directions — a hook invented
+on bare `i`, the tone dropped from `ề`/`ầ`/`ồ` — which is exactly what this product exists
+to preserve.
+
+An earlier version of this section called OCR the weakest path here and quoted 0.967 /
+0.898. Those numbers came from a defect in the corpus scorer, not from viparse, and are
+withdrawn; the corpus repository carries the full account.
 
 ## Architecture
 

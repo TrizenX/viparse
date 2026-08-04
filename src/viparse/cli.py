@@ -205,7 +205,7 @@ def _doctor() -> str:
             # "available" alone would not convey that this path is far weaker than the
             # rest of the library. 0.967 is the measured ceiling, not a typical result.
             lines.append(
-                "    note: reads .pdf and .png/.jpg/.tif; diacritic accuracy 0.967 at "
-                "best, 0.898 on degraded pages — the weakest path here"
+                "    note: reads .pdf and .png/.jpg/.tif; diacritic accuracy 0.990 on "
+                "rendered pages, 0.968 on real scans"
             )
     return "\n".join(lines)
