@@ -6,6 +6,40 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.22] — 2026-08-04
+
+### Fixed
+
+- **A foreign-language block inside a legacy document was converted anyway.** Content
+  detection returned the same `"assumed-unicode"` verdict for two different findings:
+  *not enough evidence to tell*, and *the text converted well and then read as another
+  language* (VIP-115).
+
+  The second is a positive result, and a caller can act on it. A block that declined for
+  want of evidence should take its neighbour's verdict — an encoding changes at a section
+  boundary rather than mid-document. A block that is actively Spanish should not, and
+  until now it did: a Spanish table beside a Vietnamese one in the same workbook
+  inherited TCVN3 and came back as `Seđor`.
+
+  The guard rejection now reports `method="content-not-vietnamese"`, and the per-block
+  fallback suppresses inheritance only for that.
+
+### The second attempt at this, and why the first was wrong
+
+0.1.21 tried treating *every* declined detection as "not Vietnamese" and took the corpus
+from 0.980 to **0.967** — most declines are ordinary Vietnamese blocks that simply did
+not score well enough to be sure. The distinction had to come from the detector rather
+than from a guess at the call site, which is what this release does.
+
+### Measured
+
+Corpus unchanged: **0.978** char, **0.983** diacritic over 96 documents.
+
+That is the right outcome, not a disappointing one. The case fixed here — a
+foreign-language block inside a legacy Vietnamese document — does not occur in the
+corpus, so a number that *moved* would have meant something else had broken. Both halves
+of the distinction have a test.
+
 ## [0.1.21] — 2026-08-02
 
 ### Fixed
@@ -740,7 +774,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.21...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.22...HEAD
+[0.1.22]: https://github.com/TrizenX/viparse/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/TrizenX/viparse/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/TrizenX/viparse/compare/v0.1.19...v0.1.20
 [0.1.19]: https://github.com/TrizenX/viparse/compare/v0.1.18...v0.1.19
