@@ -76,6 +76,11 @@ path = "src/viparse/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/viparse"]
 
+# The distributions under packages/ are built from their own pyproject.toml and must not
+# be swept into viparse's sdist, or `pip install viparse` would ship two copies of them.
+[tool.hatch.build.targets.sdist]
+exclude = ["packages/"]
+
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]

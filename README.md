@@ -119,7 +119,10 @@ a section boundary, a table row is never split in half, and a chunk that continu
 its header row. On PDF there are no headings to work with — see
 [What it does not do](#what-it-does-not-do).
 
-Drop it into an existing LangChain or LlamaIndex pipeline as a first-class loader:
+Drop it into an existing LangChain or LlamaIndex pipeline as a first-class loader — from
+`viparse[langchain]` / `viparse[llamaindex]`, or from the standalone
+[`viparse-langchain`](packages/viparse-langchain) / [`viparse-llamaindex`](packages/viparse-llamaindex)
+packages, which are the same classes under a name a framework user can find:
 
 ```python
 from viparse.integrations import VietnameseDocumentLoader, ViparseReader
