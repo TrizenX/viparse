@@ -6,6 +6,45 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.29] — 2026-08-05
+
+### Added
+
+- **`VietnameseDocumentLoader`** — a LangChain `BaseLoader` — and **`ViparseReader`** — a
+  LlamaIndex `BaseReader` (VIP-125):
+
+  ```python
+  from viparse.integrations import VietnameseDocumentLoader, ViparseReader
+
+  docs = VietnameseDocumentLoader("bao_cao_cu.doc").load()
+  documents = ViparseReader().load_data("bao_cao_cu.doc")
+  ```
+
+  viparse already had `to_langchain_documents` / `to_llamaindex_documents`, and they were
+  the wrong shape for adoption: a **converter** is only ever reached by someone who has
+  already chosen viparse, while a **loader** is reached by someone who was already writing
+  a pipeline and needed a Vietnamese document read correctly. Only the second can be found
+  by a stranger.
+
+  Both take the same options as `load()`, both stream (`lazy_load` is a generator, so a
+  large document is not materialised first), and both still import their framework lazily
+  — `import viparse.integrations` pulls in neither.
+
+### Why this instead of upstream PRs
+
+The roadmap said to open PRs against `langchain-community` and the LlamaHub reader
+registry. Checked 2026-08-05: both projects have closed that path.
+
+> LlamaIndex `CONTRIBUTING.md`: *"we are no longer accepting new integration packages in
+> this repository… PRs that add a new `pyproject.toml` will be automatically closed."*
+>
+> LangChain contributing guide: *"New integrations are not accepted as PRs to
+> `langchain-ai` repos — they must be published independently to PyPI or npm."*
+
+The plan's acceptance criterion was "their CI passing", which is unreachable when a bot
+closes the PR before CI runs. Being the integration is the reachable version of being in
+one.
+
 ## [0.1.28] — 2026-08-04
 
 ### Measured
@@ -1060,7 +1099,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.28...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.29...HEAD
+[0.1.29]: https://github.com/TrizenX/viparse/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/TrizenX/viparse/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/TrizenX/viparse/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/TrizenX/viparse/compare/v0.1.25...v0.1.26

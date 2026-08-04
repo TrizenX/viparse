@@ -119,9 +119,20 @@ a section boundary, a table row is never split in half, and a chunk that continu
 its header row. On PDF there are no headings to work with — see
 [What it does not do](#what-it-does-not-do).
 
+Drop it into an existing LangChain or LlamaIndex pipeline as a first-class loader:
+
 ```python
-from viparse.integrations.langchain import to_langchain_documents
-from viparse.integrations.llamaindex import to_llamaindex_documents
+from viparse.integrations import VietnameseDocumentLoader, ViparseReader
+
+docs = VietnameseDocumentLoader("bao_cao_cu.doc", chunk=ChunkOptions()).load()
+documents = ViparseReader().load_data("bao_cao_cu.doc")
+```
+
+Both take the same options as `load()`, and both stream. If you already have a viparse
+`Document`, the converters underneath are public too:
+
+```python
+from viparse.integrations import to_langchain_documents, to_llamaindex_documents
 ```
 
 ```bash

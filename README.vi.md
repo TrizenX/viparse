@@ -121,6 +121,27 @@ chunk không bao giờ vắt qua ranh giới mục, một dòng bảng không ba
 chunk nào tiếp nối một bảng thì được lặp lại dòng tiêu đề của bảng đó. Riêng PDF thì
 không có mục nào để bám vào — xem [Những gì nó không làm](#những-gì-nó-không-làm).
 
+### Cắm vào LangChain / LlamaIndex
+
+```python
+from viparse.integrations import VietnameseDocumentLoader, ViparseReader
+
+docs = VietnameseDocumentLoader("bao_cao_cu.doc").load()
+documents = ViparseReader().load_data("bao_cao_cu.doc")
+```
+
+Đây là loader hạng nhất theo đúng hình dạng mà pipeline của hai framework được viết
+quanh, chứ không phải hàm chuyển đổi gọi sau. Khác biệt đó quan trọng hơn vẻ ngoài: một
+hàm chuyển đổi chỉ tới tay người **đã đi tìm viparse**, còn một loader thì tới tay người
+đang viết pipeline và cần đọc đúng một tài liệu tiếng Việt.
+
+Cả hai nhận đúng các tuỳ chọn của `load()` và đều chạy theo luồng. Nếu đã có sẵn một
+`Document` của viparse, hai hàm chuyển đổi bên dưới cũng là API công khai:
+
+```python
+from viparse.integrations import to_langchain_documents, to_llamaindex_documents
+```
+
 ### Dòng lệnh
 
 ```bash

@@ -35,8 +35,18 @@ def fake_langchain(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     package = types.ModuleType("langchain_core")
     documents = types.ModuleType("langchain_core.documents")
     documents.Document = _FakeLangChainDocument  # type: ignore[attr-defined]
+    loaders = types.ModuleType("langchain_core.document_loaders")
+
+    class _FakeBaseLoader:
+        """Enough of BaseLoader to exercise ours: `load` defined via `lazy_load`."""
+
+        def load(self) -> list[object]:
+            return list(self.lazy_load())  # type: ignore[attr-defined]
+
+    loaders.BaseLoader = _FakeBaseLoader  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "langchain_core", package)
     monkeypatch.setitem(sys.modules, "langchain_core.documents", documents)
+    monkeypatch.setitem(sys.modules, "langchain_core.document_loaders", loaders)
     yield
 
 
@@ -48,7 +58,16 @@ def fake_llamaindex(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     schema.Document = _FakeLlamaIndexDocument  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "llama_index", package)
     monkeypatch.setitem(sys.modules, "llama_index.core", core)
+    readers = types.ModuleType("llama_index.core.readers")
+    base_mod = types.ModuleType("llama_index.core.readers.base")
+
+    class _FakeBaseReader:
+        pass
+
+    base_mod.BaseReader = _FakeBaseReader  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "llama_index.core.schema", schema)
+    monkeypatch.setitem(sys.modules, "llama_index.core.readers", readers)
+    monkeypatch.setitem(sys.modules, "llama_index.core.readers.base", base_mod)
     yield
 
 
@@ -145,3 +164,86 @@ def test_llamaindex_missing_dependency_names_the_extra(monkeypatch: pytest.Monke
     monkeypatch.setitem(sys.modules, "llama_index.core.schema", None)  # exact imported submodule
     with pytest.raises(MissingDependency, match=r"viparse\[llamaindex\]"):
         to_llamaindex_documents(_document())
+
+
+# --- Loader / reader classes -------------------------------------------------
+#
+# These matter more than the converters they wrap. A converter is only ever reached by
+# someone who already chose viparse; a loader is reached by someone who was already
+# writing a LangChain pipeline and needed a Vietnamese document read correctly.
+
+
+def _tcvn3_docx(path) -> str:  # noqa: ANN001
+    """A real .docx whose text is TCVN3 in a .VnTime run — the case the loader exists for.
+
+    Built with python-docx rather than by hand: a bare `word/document.xml` in a zip has no
+    `[Content_Types].xml` and every OOXML reader rejects it.
+    """
+    docx = pytest.importorskip("docx")
+    document = docx.Document()
+    run = document.add_paragraph().add_run("B\u00b8o c\u00b8o t\u00b5i ch\u00ddnh")
+    run.font.name = ".VnTime"
+    document.save(str(path))
+    return str(path)
+
+
+@pytest.mark.usefixtures("fake_langchain")
+def test_langchain_loader_reads_a_file_end_to_end(tmp_path) -> None:  # noqa: ANN001
+    from viparse.integrations import VietnameseDocumentLoader
+
+    source = _tcvn3_docx(tmp_path / "a.docx")
+    docs = VietnameseDocumentLoader(source).load()
+    assert [d.page_content for d in docs] == ["B\u00e1o c\u00e1o t\u00e0i ch\u00ednh"]
+    assert docs[0].metadata["encoding_detected"] == "tcvn3"
+
+
+@pytest.mark.usefixtures("fake_langchain")
+def test_langchain_loader_forwards_load_options(tmp_path) -> None:  # noqa: ANN001
+    """Options reach viparse.load, so the loader is not a lossy wrapper.
+
+    `encoding="none"` is the clearest probe: it must come back unconverted.
+    """
+    from viparse.integrations import VietnameseDocumentLoader
+
+    source = _tcvn3_docx(tmp_path / "a.docx")
+    docs = VietnameseDocumentLoader(source, encoding="none").load()
+    assert docs[0].page_content == "B\u00b8o c\u00b8o t\u00b5i ch\u00ddnh"
+
+
+@pytest.mark.usefixtures("fake_langchain")
+def test_langchain_loader_is_lazy(tmp_path) -> None:  # noqa: ANN001
+    # lazy_load must be a generator: the base class builds `load` on top of it, and a
+    # caller streaming a large document should not have to materialise it first.
+    from viparse.integrations import VietnameseDocumentLoader
+
+    stream = VietnameseDocumentLoader(_tcvn3_docx(tmp_path / "a.docx")).lazy_load()
+    assert isinstance(stream, Iterator)
+
+
+@pytest.mark.usefixtures("fake_llamaindex")
+def test_llamaindex_reader_reads_a_file_end_to_end(tmp_path) -> None:  # noqa: ANN001
+    from viparse.integrations import ViparseReader
+
+    docs = ViparseReader().load_data(_tcvn3_docx(tmp_path / "a.docx"))
+    assert [d.text for d in docs] == ["B\u00e1o c\u00e1o t\u00e0i ch\u00ednh"]
+
+
+@pytest.mark.usefixtures("fake_llamaindex")
+def test_llamaindex_reader_call_options_override_constructor_options(tmp_path) -> None:  # noqa: ANN001
+    from viparse.integrations import ViparseReader
+
+    reader = ViparseReader(encoding="none")
+    docs = reader.load_data(_tcvn3_docx(tmp_path / "a.docx"), encoding="tcvn3")
+    assert docs[0].text == "B\u00e1o c\u00e1o t\u00e0i ch\u00ednh"
+
+
+def test_loader_without_langchain_raises_missing_dependency(monkeypatch) -> None:  # noqa: ANN001
+    monkeypatch.setitem(sys.modules, "langchain_core.document_loaders", None)
+    with pytest.raises(MissingDependency, match=r"viparse\[langchain\]"):
+        from viparse.integrations import VietnameseDocumentLoader  # noqa: F401
+
+
+def test_reader_without_llamaindex_raises_missing_dependency(monkeypatch) -> None:  # noqa: ANN001
+    monkeypatch.setitem(sys.modules, "llama_index.core.readers.base", None)
+    with pytest.raises(MissingDependency, match=r"viparse\[llamaindex\]"):
+        from viparse.integrations import ViparseReader  # noqa: F401
