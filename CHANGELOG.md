@@ -6,6 +6,24 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **`viparse-langchain` and `viparse-llamaindex`** — two thin distributions under
+  `packages/`, each re-exporting the loader that already ships in
+  `viparse[langchain]` / `viparse[llamaindex]` (VIP-126). They add no code. They exist to
+  be *findable*: both frameworks stopped accepting third-party integrations into their own
+  repositories, so a package on PyPI whose name says LangChain or LlamaIndex is the only
+  remaining way to appear where those users look.
+
+  Not `langchain-viparse` or `llama-index-readers-viparse`. Every `langchain-*`
+  distribution on PyPI is published by `langchain-ai` itself, and
+  `llama-index-readers-*` is LlamaHub's own namespace — taking either would imply an
+  official integration that does not exist, and a PyPI name cannot be given back.
+
+  Published by hand from `publish-integrations.yml`, one at a time. They version
+  independently and should almost never need releasing: a release means the loader's
+  signature changed, which is worth noticing rather than automating.
+
 ## [0.1.29] — 2026-08-05
 
 ### Added

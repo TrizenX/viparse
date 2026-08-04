@@ -1,0 +1,66 @@
+name: Publish integrations
+
+# The two thin integration distributions — viparse-langchain and viparse-llamaindex.
+#
+# Separate from publish.yml on purpose. They version independently of viparse and should
+# almost never need releasing: each is a re-export whose only job is to be findable on
+# PyPI, so a release means the loader's signature changed, which is worth noticing.
+#
+# Triggered by hand, one package at a time. There is no tag convention to hang this on,
+# and inventing one to automate a release that happens once a year would be a way to
+# publish something nobody meant to publish.
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Which distribution to publish
+        required: true
+        type: choice
+        options:
+          - viparse-langchain
+          - viparse-llamaindex
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/${{ inputs.package }}
+    permissions:
+      id-token: write # Trusted Publishing (OIDC) — no API token is stored
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Build wheel and sdist
+        working-directory: packages/${{ inputs.package }}
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+
+      - name: Validate distribution metadata
+        working-directory: packages/${{ inputs.package }}
+        run: twine check dist/*
+
+      - name: Check it imports from a clean environment
+        working-directory: packages/${{ inputs.package }}
+        # Installing the wheel must pull viparse and expose the class. A re-export package
+        # that does not re-export is the one failure this can actually have, and it would
+        # otherwise be found by whoever installed it first.
+        run: |
+          python -m venv /tmp/verify
+          /tmp/verify/bin/pip install --quiet dist/*.whl
+          /tmp/verify/bin/python -c "
+          import importlib, sys
+          module = '${{ inputs.package }}'.replace('-', '_')
+          names = importlib.import_module(module).__all__
+          assert names, module + ' exports nothing'
+          print(module, 'exports', names)"
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/${{ inputs.package }}/dist

@@ -130,6 +130,10 @@ docs = VietnameseDocumentLoader("bao_cao_cu.doc").load()
 documents = ViparseReader().load_data("bao_cao_cu.doc")
 ```
 
+Có sẵn trong `viparse[langchain]` / `viparse[llamaindex]`, hoặc cài riêng bằng
+`pip install viparse-langchain` / `viparse-llamaindex` — cùng một lớp, dưới cái tên mà
+người dùng framework tìm ra được.
+
 Đây là loader hạng nhất theo đúng hình dạng mà pipeline của hai framework được viết
 quanh, chứ không phải hàm chuyển đổi gọi sau. Khác biệt đó quan trọng hơn vẻ ngoài: một
 hàm chuyển đổi chỉ tới tay người **đã đi tìm viparse**, còn một loader thì tới tay người
