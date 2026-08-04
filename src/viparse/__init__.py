@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from viparse.api import load, load_batch
+from viparse.api import detect_text_encoding, fix, load, load_batch
 from viparse.cache import Cache, DiskCache, MemoryCache
 from viparse.chunk import ChunkOptions, chunk_document
 from viparse.config import Settings, load_settings
@@ -75,6 +75,8 @@ __all__ = [
     "Heading",
     "LegacyOfficeEngine",
     "LoadOptions",
+    "detect_text_encoding",
+    "fix",
     "load",
     "load_batch",
     "MetricsHook",

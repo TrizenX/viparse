@@ -53,20 +53,15 @@ With the MCP server (`pip install "viparse[mcp]"`), call
 `repair_garbled_vietnamese` with the text. Otherwise:
 
 ```python
-from viparse.normalize.normalizer import VietnameseNormalizer
-from viparse.model import RawExtraction
-from viparse.options import LoadOptions
+import viparse
 
-raw = RawExtraction(
-    source="<text>",
-    content_type="text/plain",
-    text="B¸o c¸o tµi chÝnh",
-    engine="manual",
-    signals={"fonts": []},
-)
-print(VietnameseNormalizer().normalize(raw, LoadOptions(encoding="auto")).text)
+print(viparse.fix("B¸o c¸o tµi chÝnh"))
 # Báo cáo tài chính
+
+viparse.detect_text_encoding("B¸o c¸o tµi chÝnh")  # 'tcvn3', or None
 ```
+
+`viparse.fix` takes text, not a path, so it works on whatever another tool handed you.
 
 ### If you have the file
 

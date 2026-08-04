@@ -43,8 +43,24 @@ it to real Vietnamese letters and enforces NFC, so the text that reaches your ve
 text a human would read.
 
 Use it as the loader for a Vietnamese-heavy corpus, or as a normalization pass over text another
-loader produced. A published head-to-head benchmark on diacritic accuracy is planned for v0.2 —
-until it exists, this section deliberately makes no accuracy claims against those tools.
+loader produced — that second shape is one call:
+
+```python
+import viparse
+
+docs = [viparse.fix(doc.page_content) for doc in some_other_loader.load()]
+```
+
+`fix` takes text, not a path, so it composes with whatever already read the file. Text that is
+already Unicode, and text that is not Vietnamese, come back unchanged.
+
+**On accuracy claims.** [viparse-corpus](https://github.com/TrizenX/viparse-corpus) publishes
+0.983 diacritic accuracy over 108 hand-transcribed Vietnamese government documents in five real
+formats, against **0.019** for a loader that extracts the bytes and ignores the encoding. That is
+a claim about viparse, not a comparison: **no other tool has been run against that corpus.** A
+head-to-head would need their output on the same files, and until that exists this section makes
+no claim about anyone else. The corpus, the metric and every raw result are public so it can be
+argued with — including a written account of the ways the number is weaker than it looks.
 
 ## Status
 

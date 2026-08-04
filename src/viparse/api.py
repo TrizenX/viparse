@@ -35,6 +35,63 @@ from viparse.protocols import Engine, Source
 from viparse.registry import EngineRegistry
 from viparse.structure import DocumentRenderer
 
+#: What :func:`fix` passes for a source it was handed as a bare string.
+_TEXT_SOURCE = "<text>"
+_TEXT_CONTENT_TYPE = "text/plain"
+
+
+def _normalize_text(text: str, encoding: str, form: NormalizeForm) -> NormalizedDoc:
+    """Run the normalizer over a string, with no file and no engine involved."""
+    from viparse.model import RawExtraction
+
+    raw = RawExtraction(
+        source=_TEXT_SOURCE,
+        content_type=_TEXT_CONTENT_TYPE,
+        text=text,
+        engine="text",
+        signals={"fonts": []},
+    )
+    return VietnameseNormalizer().normalize(
+        raw, LoadOptions(encoding=encoding, normalize_form=form)
+    )
+
+
+def fix(text: str, *, encoding: str = "auto", normalize: NormalizeForm = "NFC") -> str:
+    """Repair Vietnamese text that another tool already extracted.
+
+    The normalization layer without the extraction layer — for text that reached you as a
+    string, from a loader that read the bytes faithfully and therefore faithfully wrong::
+
+        docs = [viparse.fix(doc.page_content) for doc in loader.load()]
+
+    This is the pass ``README`` has always described and the API did not offer. Reaching
+    it meant constructing a ``RawExtraction`` and a ``LoadOptions`` and calling the
+    normalizer directly — four places in this project did exactly that, including its own
+    MCP server and its own agent skill.
+
+    ``encoding`` defaults to ``"auto"``, unlike :func:`load`, where content detection is
+    opt-in because a caller handing over a *file* may not know what is in it. Someone
+    calling a function named ``fix`` on a string they are looking at has already made
+    that assertion. Pass a name — ``"tcvn3"``, ``"vni"``, ``"viscii"``, ``"vps"`` — when
+    the source is known, which also skips detection's length floor: a short fragment is
+    too little to score, so ``"laäp"`` on its own detects as VISCII and needs telling.
+
+    Text that is already Unicode, and text that is not Vietnamese, come back unchanged.
+    """
+    return _normalize_text(text, encoding, normalize).text
+
+
+def detect_text_encoding(text: str) -> str | None:
+    """Which legacy encoding ``text`` is in — ``"tcvn3"``, ``"vni"``, … — or ``None``.
+
+    Changes nothing. Useful before converting a batch, or to explain to a user what they
+    are looking at. ``None`` covers three cases the caller usually wants to treat alike:
+    already Unicode, too short to judge, and *not Vietnamese* — the last being why a
+    Spanish document does not get converted.
+    """
+    return _normalize_text(text, "auto", "NFC").encoding_detected
+
+
 # Content type for a batch error Document whose real type was never determined (matches
 # the pipeline's own unknown-type sentinel).
 _UNKNOWN_CONTENT_TYPE = "application/octet-stream"
