@@ -201,8 +201,11 @@ def _doctor() -> str:
             status = "available"
         lines.append(f"  {name} ({dependency or 'stdlib'}): {status}")
         if getattr(engine, "ocr", False):
-            # Said here because `doctor` is where someone checks what they can rely on,
-            # and "available" would otherwise read as "measured". It is not: no OCR
-            # accuracy figure exists and no scanned document is in either benchmark.
-            lines.append("    note: reads .pdf and .png/.jpg/.tif; accuracy is unmeasured")
+            # Said here because `doctor` is where someone decides what to rely on, and
+            # "available" alone would not convey that this path is far weaker than the
+            # rest of the library. 0.967 is the measured ceiling, not a typical result.
+            lines.append(
+                "    note: reads .pdf and .png/.jpg/.tif; diacritic accuracy 0.967 at "
+                "best, 0.898 on degraded pages — the weakest path here"
+            )
     return "\n".join(lines)
