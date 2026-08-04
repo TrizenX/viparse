@@ -6,6 +6,56 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.27] — 2026-08-04
+
+### Corrected
+
+**Every OCR figure published in 0.1.26 was wrong**, and by a lot. The cause was a defect in
+the corpus scorer, not in viparse (VIP-123).
+
+`score.py` aligns two texts by splitting them into segments on sentence punctuation, and
+for a region where the two sides differ it paired them **positionally**. That breaks the
+moment they segment differently — and they do, because segmentation depends on punctuation
+the parser may have misread. On a real scan, OCR lost one `:`; every following segment
+shifted by one, and a 284-character segment was scored against `""`. Raw similarity of the
+two texts was 0.9904 and the metric reported 0.578.
+
+| | published in 0.1.26 | actual |
+| --- | ---: | ---: |
+| OCR, rendered pages | 0.933 | **0.990** |
+| OCR, rendered, degraded | 0.816 | **0.986** |
+| OCR, real scans | not measured | **0.968** |
+| conversion path, legacy corpus | 0.982 | **0.986** |
+| baseline, no conversion | 0.019 | **0.019** |
+
+Two claims from 0.1.26 are withdrawn:
+
+- **"OCR is the weakest path in viparse."** It is not — 0.990 against 0.986 for
+  conversion.
+- **"Two subsets are needed because the renderer cannot draw a spreadsheet."** All 96
+  documents score 0.990 and prose-only 0.992. Tabular transcripts segment most unlike OCR
+  output, so they were where the defect bit hardest.
+
+The baseline did not move, which is the reassuring part: the floor was never in question,
+so the gap this product is about is intact.
+
+### Measured
+
+**The first real scans.** Two genuine scanned Vietnamese government documents,
+hand-transcribed from the image *before* OCR was run on them: **0.984** char, **0.968**
+diacritic. Eleven scans were found by screening 200 archived government PDFs for the
+absence of a text layer; nine were rejected, all but one for personal data.
+
+Two documents is a floor under the rendered figures, not a benchmark.
+
+### Changed
+
+- The figures are corrected in all five places they appear: both READMEs, the engine
+  docstring, the test module docstring, and `viparse doctor`.
+
+No library behaviour changed. This release exists because 0.1.26 shipped wrong numbers to
+PyPI.
+
 ## [0.1.26] — 2026-08-04
 
 ### Measured
@@ -985,7 +1035,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.26...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.27...HEAD
+[0.1.27]: https://github.com/TrizenX/viparse/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/TrizenX/viparse/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/TrizenX/viparse/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/TrizenX/viparse/compare/v0.1.23...v0.1.24

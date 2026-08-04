@@ -10,17 +10,18 @@ An image needs no rasterizing, so it goes straight to Pillow and never touches
 Tesseract is installed. A multi-page TIFF is walked frame by frame, because that is what
 a multi-page archival scan is.
 
-.. warning::
+.. note::
 
-   **This is the weakest path in viparse, and now there is a number for it.** Against
-   rendered transcripts it reaches **0.967** diacritic accuracy on prose and **0.898** on
-   degraded pages, where the conversion path scores 0.982 on the same documents. 0.967 is
-   a *ceiling*: it comes from a perfect render with no skew, noise or paper texture.
+   Measured: **0.990** diacritic accuracy on rendered pages and **0.968** on two real
+   scans, against 0.986 for the conversion path on the same documents.
 
-   The errors land on tone marks in both directions — a hook invented on bare ``i``, the
-   tone dropped from ``ề``/``ầ``/``ồ`` — which is precisely what this product exists to
-   preserve. No real scanned document has been measured at all. See ``ocr/README.md`` in
-   viparse-corpus.
+   An earlier version of this note called OCR "the weakest path in viparse" and quoted
+   0.967/0.898. Those figures came from a defect in the corpus scorer, not from this
+   engine, and are withdrawn — see ``ocr/README.md`` in viparse-corpus.
+
+   The remaining errors are tone marks in both directions — a hook invented on bare ``i``,
+   the tone dropped from ``ề``/``ầ``/``ồ`` — which is precisely what this product exists to
+   preserve. Two real scans is a floor, not a benchmark.
 
 A scanned PDF has no text layer, so the digital :class:`~viparse.engines.pdf.PdfEngine`
 yields nothing. This engine rasterizes each page, converts it to grayscale, and OCRs it
