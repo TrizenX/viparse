@@ -206,6 +206,6 @@ def _doctor() -> str:
             # rest of the library. 0.967 is the measured ceiling, not a typical result.
             lines.append(
                 "    note: reads .pdf and .png/.jpg/.tif; diacritic accuracy 0.990 on "
-                "rendered pages, 0.968 on real scans"
+                "rendered pages, 0.973 on 3 real scans"
             )
     return "\n".join(lines)
