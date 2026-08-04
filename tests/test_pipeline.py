@@ -269,3 +269,31 @@ def test_rejects_zip_bomb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     pipeline, *_ = _pipeline()
     with pytest.raises(UnsafeInput):
         pipeline.run(_docx(tmp_path / "a.docx"))
+
+
+def _png(path: Path) -> Path:
+    path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    return path
+
+
+def test_a_page_image_turns_ocr_on_by_itself(tmp_path: Path) -> None:
+    """An image is a scan by definition — there is no text layer it could have instead.
+
+    Leaving `ocr` unset would send it down the plain-engine path and report that no engine
+    is registered for `image/png`, which names the wrong problem.
+    """
+    pipeline, engine, *_ = _pipeline()
+    pipeline.run(_png(tmp_path / "a.png"))
+    assert engine.seen_options is not None
+    assert engine.seen_options.ocr is True
+
+
+def test_explicit_ocr_false_on_an_image_says_why(tmp_path: Path) -> None:
+    class _OcrOnly(RecordingEngine):
+        ocr = True
+
+    reg = EngineRegistry()
+    reg.register(_OcrOnly())
+    pipeline = Pipeline(reg, RecordingNormalizer(), RecordingRenderer())
+    with pytest.raises(EngineUnavailable, match="can only be read by OCR"):
+        pipeline.run(_png(tmp_path / "a.png"), LoadOptions(ocr=False, strict=True))

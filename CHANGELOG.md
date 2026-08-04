@@ -6,6 +6,54 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.25] — 2026-08-04
+
+### Added
+
+- **Page images are readable: `.png`, `.jpg`, `.tif`** (VIP-121). Until now they raised
+  `UnsupportedFormat` at the router, before any engine saw them — the format detector
+  knew four magic signatures and none was an image.
+
+  This is how a great many old Vietnamese documents actually exist: a flatbed scan saved
+  as archival TIFF, or a photograph taken with a phone. A **multi-page TIFF** is walked
+  frame by frame, because that is what a digitised archive is and reading only the first
+  page would drop the rest in silence.
+
+  ```python
+  viparse.load("scan.jpg")  # ocr=True is implied — an image has no text layer
+  ```
+
+- **Image OCR no longer needs poppler.** `pdf2image` is imported only for a PDF, so a
+  machine with Tesseract but no poppler can still read an image. The two missing-binary
+  errors name their own binary rather than sharing one message.
+
+### Changed
+
+- An image turns `ocr` on by itself when the caller left it unset. An image *is* a scan —
+  there is no text layer it could have instead — and OCR is the only engine that reads
+  one. Without this, a `.jpg` went down the plain-engine path and came back with "no
+  engine registered for content type 'image/jpeg'", which names the wrong problem.
+  Passing `ocr=False` on an image now says why that cannot work.
+- `viparse doctor` notes beside the OCR engine that its accuracy is unmeasured. That is
+  the screen where someone decides what they can rely on, and "available" would otherwise
+  read as "measured".
+
+### Not measured, and said plainly
+
+**This release ships a feature on a code path that has never been executed.** Every OCR
+test in this project mocks Tesseract; no scanned document exists in either published
+benchmark; no OCR accuracy figure has ever been taken. Adding image support does not
+change any of that — it adds a second route into the same unverified engine.
+
+That is a deliberate choice made with the risk stated rather than discovered later, and
+it is now written in `README.md`, `README.vi.md`, the engine's own docstring, the test
+module's docstring, and `viparse doctor`. Every other claim this project makes has a
+number behind it. This one does not, and it is labelled everywhere it appears.
+
+Measuring it needs Tesseract plus the `vie` language data installed. The corpus already
+holds 96 hand transcripts, so the measurement itself costs no new transcription: render a
+document to page images, OCR it, score against the transcript that already exists.
+
 ## [0.1.24] — 2026-08-04
 
 Three defects in shipped code, none of them visible in the text output, all three found
@@ -895,7 +943,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.24...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.25...HEAD
+[0.1.25]: https://github.com/TrizenX/viparse/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/TrizenX/viparse/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/TrizenX/viparse/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/TrizenX/viparse/compare/v0.1.21...v0.1.22

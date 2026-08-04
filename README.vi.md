@@ -9,7 +9,7 @@
 **English:** [README.md](README.md) · **Trang chủ:** [viparse.trizenx.com](https://viparse.trizenx.com)
 
 Một lệnh để biến tài liệu tiếng Việt bất kỳ — kể cả file dùng **phông chữ cũ** `.VnTime`,
-`VNI-Times`, file `.doc` / `.xls` / `.ppt` đời cũ, hay PDF scan — thành Unicode **dựng sẵn (NFC)**
+`VNI-Times`, file `.doc` / `.xls` / `.ppt` đời cũ, PDF scan hay ảnh chụp — thành Unicode **dựng sẵn (NFC)**
 sạch, ở dạng Markdown hoặc JSON, sẵn sàng đẩy vào vector DB.
 
 ```python
@@ -70,7 +70,7 @@ pip install viparse                # lõi — thuần stdlib
 pip install "viparse[office]"      # .docx/.xlsx/.pptx và .doc/.xls/.ppt đời cũ
 pip install "viparse[pdf]"         # PDF số hoá
 pip install "viparse[rtf]"         # RTF
-pip install "viparse[ocr]"         # PDF scan (cần cài Tesseract)
+pip install "viparse[ocr]"         # PDF scan và file ảnh (cần cài Tesseract)
 pip install "viparse[langchain]"   # adapter LangChain
 pip install "viparse[llamaindex]"  # adapter LlamaIndex
 pip install "viparse[mcp]"         # MCP server, cho AI agent
@@ -222,8 +222,16 @@ phân tích bố cục. Với PDF nhiều cột, hãy dùng một bộ đọc hi
 **docling**, **LlamaParse** — rồi đưa kết quả của nó qua `viparse.fix()`. Đó mới là cách
 ghép đúng ý đồ: họ biết chữ nằm ở đâu, viparse biết những byte đó nghĩa là gì.
 
-**Hoàn toàn không đụng tới:** hình ảnh và biểu đồ, công thức, thứ tự đọc của bố cục xoay
-hoặc tự do, và chữ viết tay. Trang scan cần `viparse[ocr]`.
+**Hoàn toàn không đụng tới:** hình minh hoạ và biểu đồ nhúng, công thức, thứ tự đọc của
+bố cục xoay hoặc tự do, và chữ viết tay.
+
+**OCR chưa được đo, và đây không phải cách nói giảm.** `viparse[ocr]` đọc được PDF scan và
+file ảnh (`.png` / `.jpg` / `.tif`, kể cả TIFF nhiều trang), nhưng **mọi test của nó đều
+mock Tesseract**. Không có tài liệu scan nào trong cả hai benchmark đã công bố, chưa từng
+có con số độ chính xác OCR nào, và dự án này chưa từng chạy engine đó với Tesseract thật.
+Phần code đã được rà, chưa được kiểm chứng. Mọi thứ khác trong README này đều có một con
+số chống lưng; riêng phần này thì không, nên nó được đặt ở đây chứ không đặt cạnh những
+thứ có.
 
 ## Nguyên tắc thiết kế
 

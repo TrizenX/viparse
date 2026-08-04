@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 
 from viparse.chunk import chunk_document
-from viparse.detect import DetectedFormat, detect_format
+from viparse.detect import IMAGE_CONTENT_TYPES, DetectedFormat, detect_format
 from viparse.errors import EngineUnavailable, ExtractionError, MissingDependency, ViparseError
 from viparse.model import Document, DocumentMetadata, RawExtraction
 from viparse.observability import MetricsHook, PipelineMetrics, logger
@@ -123,6 +123,14 @@ class Pipeline:
             check_zip_bomb(source, detected.content_type)  # reject a decompression bomb
             chain = self._select_by_ocr(self._registry.engines_for(detected.content_type), opts.ocr)
             if not chain:
+                # An image only ever has an OCR engine, so an empty chain here means the
+                # caller turned OCR off rather than that nothing is registered. Saying
+                # the latter would send them looking for a missing dependency.
+                if detected.content_type in IMAGE_CONTENT_TYPES and opts.ocr is False:
+                    raise EngineUnavailable(
+                        f"{detected.content_type} can only be read by OCR, and ocr=False "
+                        "was passed; omit it or pass ocr=True"
+                    )
                 raise EngineUnavailable(
                     f"no engine registered for content type {detected.content_type!r}"
                 )
@@ -184,7 +192,17 @@ class Pipeline:
 
     @staticmethod
     def _apply_scan_hint(options: LoadOptions, detected: DetectedFormat) -> LoadOptions:
-        """Resolve an unset ``ocr`` hook from the router's scanned-PDF hint."""
+        """Resolve an unset ``ocr`` hook from what the router saw.
+
+        A page image is a scan by definition — there is no text layer it could have
+        instead — and OCR is the only engine that reads one. Leaving ``ocr`` unset there
+        would send a ``.jpg`` down the plain-engine path, find nothing, and report "no
+        engine registered for content type 'image/jpeg'", which names the wrong problem.
+        For a PDF the hint stays conservative: the router can rule OCR *out* on seeing a
+        text layer, never rule it in.
+        """
+        if options.ocr is None and detected.content_type in IMAGE_CONTENT_TYPES:
+            return replace(options, ocr=True)
         if options.ocr is None and detected.is_scanned_pdf is not None:
             return replace(options, ocr=detected.is_scanned_pdf)
         return options

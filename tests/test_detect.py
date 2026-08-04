@@ -10,10 +10,13 @@ import pytest
 from viparse.detect import (
     _OLE2_MAGIC,
     CONTENT_TYPE_DOCX,
+    CONTENT_TYPE_JPEG,
     CONTENT_TYPE_OLE2,
     CONTENT_TYPE_PDF,
+    CONTENT_TYPE_PNG,
     CONTENT_TYPE_PPTX,
     CONTENT_TYPE_RTF,
+    CONTENT_TYPE_TIFF,
     CONTENT_TYPE_XLSX,
     detect_format,
 )
@@ -116,3 +119,35 @@ def test_unknown_bytes_are_rejected(tmp_path: Path) -> None:
     f = _write(tmp_path / "a.txt", b"just some plain text")
     with pytest.raises(UnsupportedFormat, match="unrecognized format"):
         detect_format(f)
+
+
+@pytest.mark.parametrize(
+    ("magic", "content_type"),
+    [
+        (b"\x89PNG\r\n\x1a\n", CONTENT_TYPE_PNG),
+        (b"\xff\xd8\xff\xe0" + b"\x00" * 8, CONTENT_TYPE_JPEG),
+        (b"II*\x00" + b"\x00" * 8, CONTENT_TYPE_TIFF),  # little-endian TIFF
+        (b"MM\x00*" + b"\x00" * 8, CONTENT_TYPE_TIFF),  # big-endian, as some scanners write
+    ],
+)
+def test_page_images_are_detected(tmp_path: Path, magic: bytes, content_type: str) -> None:
+    path = tmp_path / "scan.bin"
+    path.write_bytes(magic)
+    assert detect_format(path).content_type == content_type
+
+
+def test_an_image_carries_no_scanned_pdf_hint(tmp_path: Path) -> None:
+    # The hint is about a PDF's text layer. An image has none to have, so it stays unset
+    # and the pipeline decides on OCR from the content type instead.
+    path = tmp_path / "scan.png"
+    path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    assert detect_format(path).is_scanned_pdf is None
+
+
+def test_bmp_is_still_unsupported(tmp_path: Path) -> None:
+    """Left out on purpose: a two-byte signature misfires on unrelated files, and BMP is
+    not a format documents arrive in."""
+    path = tmp_path / "image.bmp"
+    path.write_bytes(b"BM" + b"\x00" * 10)
+    with pytest.raises(UnsupportedFormat):
+        detect_format(path)
