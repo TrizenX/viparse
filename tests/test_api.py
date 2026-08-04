@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import viparse
 from viparse import load, load_batch
 from viparse.model import Document
 
@@ -145,3 +146,59 @@ def test_load_batch_isolates_a_missing_file(tmp_path: Path) -> None:
     results = list(load_batch([good, tmp_path / "ghost.docx"], output="text"))
     assert results[0][0].text == "ok"
     assert results[1][0].metadata.warnings  # OSError isolated, not raised
+
+
+# --- fix(): the normalization pass, without a file (VIP-117) --------------------------
+
+
+def test_fix_repairs_text_another_tool_extracted() -> None:
+    """The pass the README always described and the API did not offer.
+
+    Reaching it meant constructing a RawExtraction and a LoadOptions and calling the
+    normalizer — four places in this project did exactly that, including its own MCP
+    server and its own agent skill.
+    """
+    assert viparse.fix("B¸o c¸o tµi chÝnh") == "Báo cáo tài chính"
+    assert viparse.fix("Coäng hoøa xaõ hoäi chuû nghóa") == "Cộng hòa xã hội chủ nghĩa"
+
+
+def test_fix_leaves_text_that_is_already_right_alone() -> None:
+    """Never corrupt good text — including when the good text is not Vietnamese."""
+    for text in (
+        "Đã là Unicode rồi, không cần sửa gì",
+        "Señor Muñoz vivía en la mañana con niños pequeños en España",
+        "An ordinary English sentence with nothing unusual in it.",
+    ):
+        assert viparse.fix(text) == text
+
+
+def test_fix_takes_a_named_encoding_when_detection_gets_a_fragment_wrong() -> None:
+    """Detection scores character frequencies, and a fragment gives it little to score.
+
+    `laäp` is VNI for lập and comes back as VISCII's reading. Four characters are not
+    enough to separate two tables that both find *some* Vietnamese in them. Naming the
+    encoding is the answer when the source is known, which is the case whenever this is
+    used as a pass over one loader's output.
+    """
+    assert viparse.fix("laäp") != "lập"
+    assert viparse.fix("laäp", encoding="vni") == "lập"
+
+
+def test_detect_text_encoding_names_it_without_changing_anything() -> None:
+    assert viparse.detect_text_encoding("Coäng hoøa xaõ hoäi chuû nghóa Vieät Nam") == "vni"
+    assert viparse.detect_text_encoding("B¸o c¸o tµi chÝnh quý II n¨m 2008") == "tcvn3"
+
+
+def test_detect_text_encoding_returns_none_for_text_it_should_not_touch() -> None:
+    """One `None` covers already-Unicode and actively-not-Vietnamese alike.
+
+    A caller treats both the same way: leave it alone. Note what is *not* in this list —
+    a short fragment. There is no length floor at document level, so `lËp` detects as
+    TCVN3 and converts; the floor that rejects fragments lives in the per-block path,
+    where a spreadsheet cell would otherwise be judged on nothing.
+    """
+    for text in (
+        "Cộng hòa xã hội chủ nghĩa Việt Nam",
+        "Señor Muñoz vivía en la mañana con niños pequeños en España",
+    ):
+        assert viparse.detect_text_encoding(text) is None

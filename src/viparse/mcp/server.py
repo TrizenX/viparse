@@ -73,16 +73,14 @@ def build_server() -> Any:
             "Say which pre-Unicode Vietnamese encoding a piece of garbled text is in — "
             "TCVN3, VNI, VISCII or VPS — without changing it. Use this to check before "
             "converting a large batch, or to explain what a user is looking at.\n\n"
-            "Returns the detected encoding, a confidence, and a short preview of how the "
-            "text reads once converted, so the answer can be judged rather than trusted."
+            "Returns the detected encoding and a short preview of how the text reads once "
+            "converted, so the answer can be judged rather than trusted."
         ),
     )
     def identify_vietnamese_encoding(text: str) -> dict[str, Any]:
         repaired = _repair(text, "auto")
-        encoding, confidence = _detect(text)
         return {
-            "encoding": encoding,
-            "confidence": confidence,
+            "encoding": _detect(text),
             "unchanged": repaired == text,
             "preview": repaired[:200],
             "note": (
@@ -126,39 +124,16 @@ def build_server() -> Any:
     return server
 
 
-def _raw(text: str) -> Any:
-    from viparse.model import RawExtraction
-
-    return RawExtraction(
-        source="<text>",
-        content_type="text/plain",
-        text=text,
-        engine="mcp",
-        signals={"fonts": []},
-    )
-
-
 def _repair(text: str, encoding: str) -> str:
-    """Convert a bare string, with no file involved.
+    from viparse import fix
 
-    ``encoding="auto"`` is the default here, unlike :func:`viparse.load`, where content
-    detection is opt-in because a caller passing a *file* may not know what is in it. An
-    agent pasting text into a tool called "repair garbled Vietnamese" has already made
-    that assertion, which is exactly the opt-in the library asks for.
-    """
-    from viparse.normalize.normalizer import VietnameseNormalizer
-    from viparse.options import LoadOptions
-
-    normalized = VietnameseNormalizer().normalize(_raw(text), LoadOptions(encoding=encoding))
-    return normalized.text
+    return fix(text, encoding=encoding)
 
 
-def _detect(text: str) -> tuple[str | None, float | None]:
-    from viparse.normalize.normalizer import VietnameseNormalizer
-    from viparse.options import LoadOptions
+def _detect(text: str) -> str | None:
+    from viparse import detect_text_encoding
 
-    normalized = VietnameseNormalizer().normalize(_raw(text), LoadOptions(encoding="auto"))
-    return normalized.encoding_detected, normalized.encoding_confidence
+    return detect_text_encoding(text)
 
 
 def main() -> None:

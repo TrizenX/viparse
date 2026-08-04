@@ -62,12 +62,17 @@ def test_repair_leaves_unicode_alone() -> None:
 def test_identify_returns_every_field_its_description_promises() -> None:
     """A description that promises a field the tool omits is a bug an agent hits at runtime.
 
-    This one promised a confidence and did not return it.
+    It once promised a confidence and did not return it. The field was added, and then
+    removed again when the tool moved onto `viparse.detect_text_encoding`, which reports
+    a name or `None` and no number — content-detection confidence is a scaled margin, and
+    what a caller can act on is whether an encoding was named at all. The description
+    moved with it; this test is what keeps the two together.
     """
     payload = json.loads(
         _call("identify_vietnamese_encoding", {"text": "Coäng hoøa xaõ hoäi chuû nghóa"})
     )
-    assert set(payload) >= {"encoding", "confidence", "preview"}
+    assert set(payload) >= {"encoding", "preview"}
+    assert "confidence" not in payload
 
 
 def test_identify_names_the_encoding_and_shows_its_work() -> None:
@@ -79,7 +84,6 @@ def test_identify_names_the_encoding_and_shows_its_work() -> None:
         )
     )
     assert payload["encoding"] == "vni"
-    assert 0 < payload["confidence"] <= 1
     assert payload["unchanged"] is False
     assert "Cộng hòa xã hội" in payload["preview"]
 
