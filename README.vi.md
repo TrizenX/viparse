@@ -231,13 +231,14 @@ kể cả TIFF nhiều trang). Đo trên
 
 | đối tượng | số tài liệu | **dấu thanh** |
 | --- | ---: | ---: |
-| **bản scan thật** | **2** | **0.968** |
+| **bản scan thật** | **3** | **0.973** |
 | trang kết xuất | 96 | **0.990** |
 | đường chuyển bảng mã, để so | 96 | **0.986** |
 
-Hai bản scan là **mức sàn cho các con số kết xuất, không phải một benchmark** — cả hai đều
-là một trang, được chép tay từ ảnh **trước khi** chạy OCR. Khoảng cách 0.968 so với 0.990
-là cái giá xấp xỉ của một trang thật.
+Ba bản scan là **mức sàn cho các con số kết xuất, không phải một benchmark** — cả ba đều là
+một trang, được chép tay từ ảnh **trước khi** chạy OCR. Khoảng cách 0.973 so với 0.990 là
+cái giá xấp xỉ của một trang thật. Hàng này sẽ đổi khi có thêm bản được chép; corpus giữ
+con số hiện hành.
 
 Lỗi còn lại gần như toàn bộ nằm ở dấu thanh, theo cả hai chiều — thêm dấu hỏi vào chữ `i`,
 làm rơi dấu khỏi `ề`/`ầ`/`ồ` — tức đúng vào thứ sản phẩm này sinh ra để giữ.

@@ -6,8 +6,8 @@ dependencies. Page images are real Pillow images, so the preprocessing runs for 
 
 **What this does not establish.** Every assertion here is against a mock: these tests show
 the adapter is wired correctly, not that OCR is accurate. Accuracy is measured separately,
-in viparse-corpus (``ocr/README.md``) — 0.990 diacritic on rendered pages and 0.968 on
-real scans, against 0.986 for the conversion path.
+in viparse-corpus (``ocr/README.md``) — 0.990 diacritic on rendered pages and 0.973 on
+three real scans, against 0.986 for the conversion path.
 
 Sources are real files on disk, because the engine re-detects the content type it is
 reading and cannot be handed a bare string.

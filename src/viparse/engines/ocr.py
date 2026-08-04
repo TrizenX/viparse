@@ -12,7 +12,7 @@ a multi-page archival scan is.
 
 .. note::
 
-   Measured: **0.990** diacritic accuracy on rendered pages and **0.968** on two real
+   Measured: **0.990** diacritic accuracy on rendered pages and **0.973** on three real
    scans, against 0.986 for the conversion path on the same documents.
 
    An earlier version of this note called OCR "the weakest path in viparse" and quoted
@@ -21,7 +21,8 @@ a multi-page archival scan is.
 
    The remaining errors are tone marks in both directions — a hook invented on bare ``i``,
    the tone dropped from ``ề``/``ầ``/``ồ`` — which is precisely what this product exists to
-   preserve. Two real scans is a floor, not a benchmark.
+   preserve. Three real scans is a floor, not a benchmark; the corpus carries the current
+   figure as more are transcribed.
 
 A scanned PDF has no text layer, so the digital :class:`~viparse.engines.pdf.PdfEngine`
 yields nothing. This engine rasterizes each page, converts it to grayscale, and OCRs it

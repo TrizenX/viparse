@@ -6,6 +6,31 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.28] — 2026-08-04
+
+### Measured
+
+**A third real scan.** The sweep widened from 200 candidate URLs to 2,300 across every
+domain in the corpus's `domains.txt`, producing 14 more scanned PDFs on top of the
+original 11 — **25 collected in total**, of which 3 are transcribed and scored (VIP-124).
+
+| document | char | diacritic |
+| --- | ---: | ---: |
+| `2005-mpi-qd837` | 0.991 | 0.988 |
+| `2005-mpi-tt01-ptbv` | 0.981 | 0.983 |
+| `2015-molisa-ttr-nd51` | 0.979 | 0.954 |
+| **all three** | **0.983** | **0.973** |
+
+Up from 0.968 on two. Rendered pages score 0.990, so a real page costs roughly two points.
+Still a floor rather than a benchmark, and the corpus carries the live figure as more are
+transcribed.
+
+The bottleneck has moved and is worth naming: collection is a background job — a CDX
+query, a parallel download, a screen that keeps only PDFs with no text layer. Reading a
+page and typing what it says is not, and it is the only thing between 3 documents and 30.
+
+No library behaviour changed; this updates the figures the package states about itself.
+
 ## [0.1.27] — 2026-08-04
 
 ### Corrected
@@ -1035,7 +1060,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.27...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.28...HEAD
+[0.1.28]: https://github.com/TrizenX/viparse/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/TrizenX/viparse/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/TrizenX/viparse/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/TrizenX/viparse/compare/v0.1.24...v0.1.25

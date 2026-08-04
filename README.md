@@ -216,13 +216,14 @@ rotated or freeform layouts, and handwriting.
 
 | subject | documents | **diacritic** |
 | --- | ---: | ---: |
-| **real scans** | **2** | **0.968** |
+| **real scans** | **3** | **0.973** |
 | rendered pages | 96 | **0.990** |
 | conversion path, for comparison | 96 | **0.986** |
 
-Two real scans is a **floor under the rendered figures, not a benchmark** — both are single
-pages, hand-transcribed from the image before OCR was run on them. The gap between 0.968
-and 0.990 is roughly what a real page costs.
+Three real scans is a **floor under the rendered figures, not a benchmark** — all three are
+single pages, hand-transcribed from the image before OCR was run on them. The gap between
+0.973 and 0.990 is roughly what a real page costs. That row moves as more are transcribed;
+the corpus carries the live figure.
 
 The remaining errors are almost entirely tone marks, in both directions — a hook invented
 on bare `i`, the tone dropped from `ề`/`ầ`/`ồ` — which is exactly what this product exists
