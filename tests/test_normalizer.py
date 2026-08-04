@@ -841,26 +841,40 @@ def test_a_table_block_is_read_by_its_cells() -> None:
     assert "Tổng số" in normalized.text
 
 
-def test_a_table_alone_in_a_document_of_other_latin_text_is_left_alone() -> None:
-    """Joining cells must not smuggle past the guards that protect good text.
+_SPANISH_CELLS = [
+    ["Señor Muñoz", "vivía en la mañana"],
+    ["con niños pequeños", "en España"],
+    ["la señora enseñaba", "español a los niños"],
+    ["en el año pasado", "con mucha paciencia"],
+]
 
-    Scoped to a document that is *only* the foreign table. A foreign block sitting
-    inside a legacy Vietnamese document still inherits its neighbour's encoding and is
-    converted — that predates reading tables at all, and an attempt to change it here
-    made things worse: treating "content detection declined" as "this is not Vietnamese"
-    took the whole corpus from 0.980 to 0.967, because most declines are ordinary
-    Vietnamese blocks that simply did not score well enough to be sure.
 
-    Separating the two would need the detector to say *why* it declined, which it does
-    not, and is worth doing properly rather than by guessing at the call site.
+def test_a_foreign_block_inside_a_legacy_document_is_left_alone() -> None:
+    """A Spanish table beside a Vietnamese one must not inherit its encoding (VIP-115).
+
+    This took two attempts. Treating every declined detection as "not Vietnamese" took
+    the corpus from 0.980 to 0.967, because most declines are ordinary Vietnamese blocks
+    that simply did not score well enough to be sure. The detector now distinguishes the
+    two: thin evidence still inherits the neighbour, and an active `content-not-vietnamese`
+    verdict does not.
     """
-    spanish = [
-        ["Señor Muñoz", "vivía en la mañana"],
-        ["con niños pequeños", "en España"],
-        ["la señora enseñaba", "español a los niños"],
-        ["en el año pasado", "con mucha paciencia"],
-    ]
     normalized = VietnameseNormalizer().normalize(
-        _table_raw((spanish, "VNSTCVN3")), LoadOptions(encoding="auto")
+        _table_raw((_LEGACY_CELLS, ".VnTime"), (_SPANISH_CELLS, "VNSTCVN3")),
+        LoadOptions(encoding="auto"),
     )
-    assert "Señor" in normalized.text
+    assert "Chỉ tiêu" in normalized.text  # the Vietnamese table still converts
+    assert "Señor Muñoz" in normalized.text  # the Spanish one is untouched
+    assert "Seđor" not in normalized.text
+
+
+def test_a_short_block_still_inherits_from_its_neighbour() -> None:
+    """The other half of the distinction, held here so a future change cannot lose it.
+
+    A block with too little text to judge takes the surrounding verdict, because an
+    encoding changes at a section boundary rather than mid-document.
+    """
+    normalized = VietnameseNormalizer().normalize(
+        _table_raw((_LEGACY_CELLS, ".VnTime"), ([["Bé"]], "VNSTCVN3")),
+        LoadOptions(encoding="auto"),
+    )
+    assert "Bộ" in normalized.text

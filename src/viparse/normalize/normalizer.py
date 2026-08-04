@@ -40,6 +40,7 @@ from typing import Any
 from viparse.model import Block, Heading, NormalizedDoc, Paragraph, RawExtraction, Table
 from viparse.normalize.cleanup import clean_text
 from viparse.normalize.detector import (
+    NOT_VIETNAMESE,
     EncodingDetection,
     detect_encoding,
     detect_encoding_by_content,
@@ -148,6 +149,14 @@ def _usable_runs(block: dict[str, Any]) -> list[dict[str, Any]] | None:
 # known patterns is an absence of evidence, not evidence of absence.
 _NO_FONT_EVIDENCE = ("no-legacy-font", "assumed-unicode")
 
+#: What a block's own content said about itself, when it named no encoding.
+#: ``None`` — too little to judge; the neighbour's verdict is the better guess, because
+#: an encoding changes at a section boundary rather than mid-document.
+#: ``_FOREIGN`` — it converted well and then read as another language. That is evidence,
+#: not the absence of it, and inheriting there converts a Spanish table sitting inside a
+#: Vietnamese workbook.
+_FOREIGN = object()
+
 # How much text the unconverted-legacy warning scores. Enough to be decisive — detection
 # is unreliable on fragments — and bounded, because this runs on every document that was
 # *not* converted, which is most of them.
@@ -160,7 +169,7 @@ _WARN_SAMPLE_CHARS = 4000
 _MIN_CONTENT_CHARS = 24
 
 
-def _content_encoding(text: str, form: NormalizeForm) -> str | None:
+def _content_encoding(text: str, form: NormalizeForm) -> str | object | None:
     """Read a block's own bytes when its font name says nothing.
 
     A legacy font whose name is outside the known patterns is common: one Lâm Đồng
@@ -180,6 +189,8 @@ def _content_encoding(text: str, form: NormalizeForm) -> str | None:
         clean_text(text, form, preserve=control_chars_in(AUTO_DETECT_CHARMAPS)),
         AUTO_DETECT_CHARMAPS,
     )
+    if detection.encoding is None and detection.method == NOT_VIETNAMESE:
+        return _FOREIGN
     return detection.encoding
 
 
@@ -217,7 +228,11 @@ def _plan_block(
     fallback = doc.encoding
     if form is not None:
         # Detected once per block, not per run — see _MIN_CONTENT_CHARS.
-        fallback = _content_encoding(_detectable_text(block), form) or carried or doc.encoding
+        verdict = _content_encoding(_detectable_text(block), form)
+        if verdict is _FOREIGN:
+            fallback = None  # not Vietnamese; the neighbour's encoding is not its answer
+        else:
+            fallback = verdict or carried or doc.encoding  # type: ignore[assignment]
     runs = _usable_runs(block)
     if runs is not None:
         # A run carries at most one font, so its detection is never ``font-signal-mixed``.
