@@ -6,6 +6,21 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **`README.vi.md` — the documentation in the language its users speak.** Every public
+  word about viparse was English, while the people holding a `.doc` in `.VnTime` search
+  in Vietnamese: *chuyển bảng mã TCVN3 sang Unicode*, *file Word bị lỗi phông*. It is
+  written natively rather than translated, and anchors the product to the one thing
+  every Vietnamese developer already knows — Unikey's *Công cụ → Chuyển mã* — because
+  that locates it in one sentence.
+- **`tests/test_readme.py` runs the examples both READMEs claim**, the way
+  `tests/test_skill.py` already does for the agent skill. It matters more for the
+  Vietnamese file: the English README is read by everyone, so a wrong example there gets
+  noticed, while the other can drift unchecked. The count assertion earned itself
+  immediately — a greedy regex silently matched two of three examples, which would have
+  passed as a green suite.
+
 ## [0.1.23] — 2026-08-04
 
 ### Added
@@ -37,15 +52,23 @@ All notable changes to viparse are documented here. The format is based on
   confidence is a scaled margin; what a caller can act on is whether an encoding was
   named at all.
 - The README's accuracy section said a published benchmark was "planned for v0.2". It
-  exists — 108 documents, five formats, **0.983** against a **0.019** baseline. It now
+  exists — 96 documents, five formats, **0.982** against a **0.019** baseline. It now
   states that, and says plainly that no other tool has been run against the corpus, so
   it is not a comparison.
 
 ### Measured
 
 No conversion behaviour changed: `fix()` runs the same normalizer over the same tables,
-so the corpus stands at **0.978** char, **0.983** diacritic. This release adds a way to
-reach existing behaviour, and the number saying so is the point.
+so the corpus stands at **0.978** char, **0.982** diacritic over 96 documents.
+
+> **Corrected after publication.** This entry first read *108 documents* and *0.983*.
+> Both were wrong, and the corrected figures above are from
+> [`viparse-0.1.23-full-corpus.json`](https://github.com/TrizenX/viparse-corpus/blob/main/results/viparse-0.1.23-full-corpus.json),
+> the first results file published for a release since 0.1.20. See
+> [RESULTS.md](https://github.com/TrizenX/viparse-corpus/blob/main/RESULTS.md) for what
+> each number was and where it came from. The 0.1.22 entry below inherits the same wrong
+> diacritic figure and is left as written, because it is a record of what was believed at
+> the time.
 
 ## [0.1.22] — 2026-08-04
 

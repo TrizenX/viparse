@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/viparse)](https://pypi.org/project/viparse/)
 [![License](https://img.shields.io/pypi/l/viparse)](LICENSE)
 
-**Website:** [viparse.trizenx.com](https://viparse.trizenx.com)
+**Tiếng Việt:** [README.vi.md](README.vi.md) · **Website:** [viparse.trizenx.com](https://viparse.trizenx.com)
 
 One command turns any Vietnamese document — including legacy **TCVN3/VNI/VISCII** fonts, scanned
 PDFs, and old `.doc`/`.xls`/`.ppt` files — into clean Unicode **NFC** Markdown/JSON, ready to push into a
@@ -55,8 +55,9 @@ docs = [viparse.fix(doc.page_content) for doc in some_other_loader.load()]
 already Unicode, and text that is not Vietnamese, come back unchanged.
 
 **On accuracy claims.** [viparse-corpus](https://github.com/TrizenX/viparse-corpus) publishes
-0.983 diacritic accuracy over 108 hand-transcribed Vietnamese government documents in five real
-formats, against **0.019** for a loader that extracts the bytes and ignores the encoding. That is
+**0.982** diacritic accuracy over 96 hand-transcribed Vietnamese government documents in five real
+formats, against **0.019** for the same reader with conversion switched off. Both rows are scored
+on the same 96 documents by the same published command, one flag apart. That is
 a claim about viparse, not a comparison: **no other tool has been run against that corpus.** A
 head-to-head would need their output on the same files, and until that exists this section makes
 no claim about anyone else. The corpus, the metric and every raw result are public so it can be
