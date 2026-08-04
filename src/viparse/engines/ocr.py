@@ -12,10 +12,15 @@ a multi-page archival scan is.
 
 .. warning::
 
-   **This engine has never been executed against real Tesseract in this project.** Its
-   tests mock ``pytesseract`` entirely, no scanned document exists in either published
-   benchmark, and no accuracy figure for OCR has ever been measured. The logic below is
-   reviewed, not verified. Treat OCR output accordingly until that changes.
+   **This is the weakest path in viparse, and now there is a number for it.** Against
+   rendered transcripts it reaches **0.967** diacritic accuracy on prose and **0.898** on
+   degraded pages, where the conversion path scores 0.982 on the same documents. 0.967 is
+   a *ceiling*: it comes from a perfect render with no skew, noise or paper texture.
+
+   The errors land on tone marks in both directions — a hook invented on bare ``i``, the
+   tone dropped from ``ề``/``ầ``/``ồ`` — which is precisely what this product exists to
+   preserve. No real scanned document has been measured at all. See ``ocr/README.md`` in
+   viparse-corpus.
 
 A scanned PDF has no text layer, so the digital :class:`~viparse.engines.pdf.PdfEngine`
 yields nothing. This engine rasterizes each page, converts it to grayscale, and OCRs it

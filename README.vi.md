@@ -225,13 +225,22 @@ ghép đúng ý đồ: họ biết chữ nằm ở đâu, viparse biết những
 **Hoàn toàn không đụng tới:** hình minh hoạ và biểu đồ nhúng, công thức, thứ tự đọc của
 bố cục xoay hoặc tự do, và chữ viết tay.
 
-**OCR chưa được đo, và đây không phải cách nói giảm.** `viparse[ocr]` đọc được PDF scan và
-file ảnh (`.png` / `.jpg` / `.tif`, kể cả TIFF nhiều trang), nhưng **mọi test của nó đều
-mock Tesseract**. Không có tài liệu scan nào trong cả hai benchmark đã công bố, chưa từng
-có con số độ chính xác OCR nào, và dự án này chưa từng chạy engine đó với Tesseract thật.
-Phần code đã được rà, chưa được kiểm chứng. Mọi thứ khác trong README này đều có một con
-số chống lưng; riêng phần này thì không, nên nó được đặt ở đây chứ không đặt cạnh những
-thứ có.
+**OCR là phần yếu nhất ở đây, và con số nói đúng như vậy.** `viparse[ocr]` đọc được PDF
+scan và file ảnh (`.png` / `.jpg` / `.tif`, kể cả TIFF nhiều trang). Đo trên
+[bản chép tay được kết xuất lại](https://github.com/TrizenX/viparse-corpus/tree/main/ocr):
+
+| kiểu kết xuất | số tài liệu | **dấu thanh** |
+| --- | ---: | ---: |
+| sạch, văn xuôi | 65 | **0.967** |
+| có nhiễu, văn xuôi | 65 | **0.898** |
+| đường chuyển bảng mã, để so | 96 | **0.982** |
+
+**0.967 là mức trần**, không phải kết quả thường gặp: nó đến từ một trang kết xuất hoàn
+hảo, không lệch, không nhiễu cảm biến, không vân giấy, với phông chữ Tesseract đọc dễ.
+Bản scan thật sẽ tệ hơn, và **chưa có tài liệu tiếng Việt scan thật nào được đo cả**.
+
+Lỗi gần như toàn bộ nằm ở dấu thanh, theo cả hai chiều — thêm dấu hỏi vào chữ `i` 93 lần,
+làm rơi dấu khỏi `ề`/`ầ`/`ồ` 60 lần — tức là đúng vào thứ mà sản phẩm này sinh ra để giữ.
 
 ## Nguyên tắc thiết kế
 

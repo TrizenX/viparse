@@ -6,6 +6,48 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.26] — 2026-08-04
+
+### Measured
+
+**OCR has a number, and it is the worst one in this project** (VIP-122). It was advertised
+in six places and measured in none: every OCR test mocked Tesseract, no scanned document
+existed in any published benchmark, and this project had never executed the engine against
+a real Tesseract.
+
+Scoring OCR needs a page image whose correct text is already known. The corpus has no
+scans — but it has 96 hand-written transcripts, and rendering one back to a page image
+produces exactly that pair at no cost in new transcription.
+
+| render | documents | char | **diacritic** | syllable |
+| --- | ---: | ---: | ---: | ---: |
+| clean, all | 96 | 0.874 | **0.933** | 0.872 |
+| clean, prose only | 65 | 0.926 | **0.967** | 0.938 |
+| degraded, all | 96 | 0.749 | **0.816** | 0.748 |
+| degraded, prose only | 65 | 0.856 | **0.898** | 0.866 |
+
+The conversion path scores **0.982** on the same documents. **0.967 is a ceiling**: a
+perfectly rendered page, no skew, no sensor noise, no paper texture, in a font Tesseract
+finds easy. No real scanned Vietnamese document has been measured at all.
+
+The errors are almost entirely **tone marks, in both directions** — a hook invented on
+bare `i` 93 times; the tone dropped from `ề`/`ầ`/`ồ` 60 times; `I` read as `l` or `|` 19
+times. They land precisely on the marks this product exists to preserve. The first run
+turned `quý II` into `quý lI`.
+
+Method, both subsets and every caveat:
+[viparse-corpus/ocr](https://github.com/TrizenX/viparse-corpus/tree/main/ocr).
+
+### Changed
+
+- The "OCR is unmeasured" wording added in 0.1.25 is replaced by the figures, in all five
+  places it appeared: both READMEs, the engine docstring, the test module docstring, and
+  `viparse doctor` — which now reads `diacritic accuracy 0.967 at best, 0.898 on degraded
+  pages — the weakest path here`.
+
+No library behaviour changed in this release. It exists because the claim shipped to PyPI
+in 0.1.25 said the accuracy was unknown, and that is no longer true.
+
 ## [0.1.25] — 2026-08-04
 
 ### Added
@@ -943,7 +985,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.25...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.26...HEAD
+[0.1.26]: https://github.com/TrizenX/viparse/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/TrizenX/viparse/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/TrizenX/viparse/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/TrizenX/viparse/compare/v0.1.22...v0.1.23

@@ -4,10 +4,10 @@ The external OCR stack (pytesseract/pdf2image + the Tesseract/poppler binaries) 
 mocked so the adapter logic is covered deterministically without those heavy, non-pip
 dependencies. Page images are real Pillow images, so the preprocessing runs for real.
 
-**What this does not establish.** Every assertion here is against a mock. Nothing in this
-project has ever run this engine against real Tesseract — there is no OCR accuracy figure
-and no scanned document in either published benchmark. These tests show the adapter is
-wired correctly, not that OCR works.
+**What this does not establish.** Every assertion here is against a mock: these tests show
+the adapter is wired correctly, not that OCR is accurate. Accuracy is measured separately,
+in viparse-corpus (``ocr/README.md``) — 0.967 diacritic on rendered prose, 0.898 on
+degraded pages, against 0.982 for the conversion path.
 
 Sources are real files on disk, because the engine re-detects the content type it is
 reading and cannot be handed a bare string.

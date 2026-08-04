@@ -210,13 +210,23 @@ is, viparse knows what the bytes mean.
 **Not attempted at all:** figures and embedded images, formula recovery, reading order for
 rotated or freeform layouts, and handwriting.
 
-**OCR is unmeasured, and that is not a figure of speech.** `viparse[ocr]` reads a scanned
-PDF and a page image (`.png` / `.jpg` / `.tif`, including multi-page TIFF), and every test
-covering it mocks Tesseract. No scanned document exists in either published benchmark, no
-OCR accuracy figure has ever been taken, and this project has never run that engine
-against a real Tesseract. The adapter is reviewed, not verified. Everything else in this
-README is backed by a number; this is not, and it is listed here rather than beside the
-things that are.
+**OCR is the weakest path here, and the number says so.** `viparse[ocr]` reads a scanned
+PDF and a page image (`.png` / `.jpg` / `.tif`, including multi-page TIFF). Measured
+against [rendered transcripts](https://github.com/TrizenX/viparse-corpus/tree/main/ocr):
+
+| render | documents | **diacritic** |
+| --- | ---: | ---: |
+| clean, prose | 65 | **0.967** |
+| degraded, prose | 65 | **0.898** |
+| conversion path, for comparison | 96 | **0.982** |
+
+**0.967 is a ceiling**, not a typical result: it comes from a perfectly rendered page with
+no skew, no sensor noise and no paper texture, in a font Tesseract finds easy. A real scan
+does worse, and no real scanned Vietnamese document has been measured at all.
+
+The errors are almost entirely tone marks, in both directions — a hook invented on bare
+`i` 93 times, the tone dropped from `ề`/`ầ`/`ồ` 60 times — which is exactly what this
+product exists to preserve.
 
 ## Architecture
 
