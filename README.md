@@ -9,7 +9,7 @@
 **Tiếng Việt:** [README.vi.md](README.vi.md) · **Website:** [viparse.trizenx.com](https://viparse.trizenx.com)
 
 One command turns any Vietnamese document — including legacy **TCVN3/VNI/VISCII** fonts, scanned
-PDFs, and old `.doc`/`.xls`/`.ppt` files — into clean Unicode **NFC** Markdown/JSON, ready to push into a
+PDFs and page images, and old `.doc`/`.xls`/`.ppt` files — into clean Unicode **NFC** Markdown/JSON, ready to push into a
 vector DB.
 
 ## Why
@@ -79,7 +79,7 @@ pip install viparse                # core — pure stdlib, no parser/OCR binarie
 pip install "viparse[office]"      # .docx / .xlsx / .pptx and legacy .doc / .xls / .ppt
 pip install "viparse[pdf]"         # digital PDFs
 pip install "viparse[rtf]"         # RTF
-pip install "viparse[ocr]"         # scanned PDFs (needs the Tesseract binary)
+pip install "viparse[ocr]"         # scanned PDFs and page images (needs Tesseract)
 pip install "viparse[langchain]"   # LangChain document adapter
 pip install "viparse[llamaindex]"  # LlamaIndex document adapter
 pip install "viparse[mcp]"         # MCP server, for agents
@@ -207,8 +207,16 @@ layout-aware loader — **Unstructured**, **docling**, **LlamaParse** — and pa
 through `viparse.fix()`. That composition is the intended one: they know where the text
 is, viparse knows what the bytes mean.
 
-**Not attempted at all:** figures and images, formula recovery, reading order for
-rotated or freeform layouts, and handwriting. Scanned pages need `viparse[ocr]`.
+**Not attempted at all:** figures and embedded images, formula recovery, reading order for
+rotated or freeform layouts, and handwriting.
+
+**OCR is unmeasured, and that is not a figure of speech.** `viparse[ocr]` reads a scanned
+PDF and a page image (`.png` / `.jpg` / `.tif`, including multi-page TIFF), and every test
+covering it mocks Tesseract. No scanned document exists in either published benchmark, no
+OCR accuracy figure has ever been taken, and this project has never run that engine
+against a real Tesseract. The adapter is reviewed, not verified. Everything else in this
+README is backed by a number; this is not, and it is listed here rather than beside the
+things that are.
 
 ## Architecture
 

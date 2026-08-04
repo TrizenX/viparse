@@ -200,4 +200,9 @@ def _doctor() -> str:
         else:
             status = "available"
         lines.append(f"  {name} ({dependency or 'stdlib'}): {status}")
+        if getattr(engine, "ocr", False):
+            # Said here because `doctor` is where someone checks what they can rely on,
+            # and "available" would otherwise read as "measured". It is not: no OCR
+            # accuracy figure exists and no scanned document is in either benchmark.
+            lines.append("    note: reads .pdf and .png/.jpg/.tif; accuracy is unmeasured")
     return "\n".join(lines)

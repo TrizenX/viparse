@@ -33,6 +33,14 @@ CONTENT_TYPE_PDF = "application/pdf"
 CONTENT_TYPE_OLE2 = "application/x-ole-storage"
 CONTENT_TYPE_RTF = "application/rtf"
 
+# A page image: a scan straight off a flatbed, an archival TIFF, or a phone photo of a
+# document. There is no text layer to consider and no container to classify, so unlike
+# every other format here, naming it *is* the whole determination.
+CONTENT_TYPE_PNG = "image/png"
+CONTENT_TYPE_JPEG = "image/jpeg"
+CONTENT_TYPE_TIFF = "image/tiff"
+IMAGE_CONTENT_TYPES = frozenset({CONTENT_TYPE_PNG, CONTENT_TYPE_JPEG, CONTENT_TYPE_TIFF})
+
 # --- Magic signatures -----------------------------------------------------
 _ZIP_MAGIC = b"PK\x03\x04"
 _PDF_MAGIC = b"%PDF-"
@@ -40,6 +48,17 @@ _OLE2_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 _RTF_MAGIC = b"{\\rtf"
 # Some editors prepend a UTF-8 BOM to an otherwise plain-text RTF; tolerate it.
 _UTF8_BOM = b"\xef\xbb\xbf"
+
+# Image signatures, longest first so a prefix cannot shadow a longer match. TIFF has two,
+# for little- and big-endian writers; scanners emit both. BMP (``BM``) and WEBP are left
+# out on purpose — a two-byte signature is weak enough to misfire on unrelated files, and
+# neither is a format documents actually arrive in.
+_IMAGE_MAGIC: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", CONTENT_TYPE_PNG),
+    (b"\xff\xd8\xff", CONTENT_TYPE_JPEG),
+    (b"II*\x00", CONTENT_TYPE_TIFF),
+    (b"MM\x00*", CONTENT_TYPE_TIFF),
+)
 
 # How far to read past the header when sniffing the PDF text hint. This is a
 # best-effort window; a miss just yields an unknown hint, never a wrong one.
@@ -79,6 +98,9 @@ def detect_format(source: Source) -> DetectedFormat:
         if header.startswith(_ZIP_MAGIC):
             fh.seek(0)
             return DetectedFormat(_classify_zip(fh, path))
+        for magic, content_type in _IMAGE_MAGIC:
+            if header.startswith(magic):
+                return DetectedFormat(content_type)
     raise UnsupportedFormat(f"unrecognized format for {path!s} (magic bytes {header[:4]!r})")
 
 

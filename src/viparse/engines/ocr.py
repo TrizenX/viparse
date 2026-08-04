@@ -1,4 +1,21 @@
-"""Scanned-PDF OCR adapter, wrapping ``pdf2image`` + ``pytesseract`` (extra ``viparse[ocr]``).
+"""OCR adapter for scans, wrapping ``pdf2image`` + ``pytesseract`` (extra ``viparse[ocr]``).
+
+Handles a scanned **PDF** and a bare page **image** — ``.png``, ``.jpg``, ``.tif``. The
+second is how a great many old Vietnamese documents actually exist: a flatbed scan saved
+as archival TIFF, or a phone photograph. Until 0.1.25 those raised ``UnsupportedFormat``
+at the router, before any engine saw them.
+
+An image needs no rasterizing, so it goes straight to Pillow and never touches
+``pdf2image`` or the poppler binary — which means image OCR works on a machine where only
+Tesseract is installed. A multi-page TIFF is walked frame by frame, because that is what
+a multi-page archival scan is.
+
+.. warning::
+
+   **This engine has never been executed against real Tesseract in this project.** Its
+   tests mock ``pytesseract`` entirely, no scanned document exists in either published
+   benchmark, and no accuracy figure for OCR has ever been measured. The logic below is
+   reviewed, not verified. Treat OCR output accordingly until that changes.
 
 A scanned PDF has no text layer, so the digital :class:`~viparse.engines.pdf.PdfEngine`
 yields nothing. This engine rasterizes each page, converts it to grayscale, and OCRs it
@@ -20,7 +37,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from viparse.detect import CONTENT_TYPE_PDF
+from viparse.detect import CONTENT_TYPE_PDF, IMAGE_CONTENT_TYPES, detect_format
 from viparse.engines._shared import blocks_to_text
 from viparse.errors import ExtractionError, MissingDependency
 from viparse.model import RawExtraction
@@ -32,19 +49,37 @@ _LOW_OCR_CONFIDENCE = 60.0  # Tesseract word confidence is 0-100; below this is 
 _OCR_TIMEOUT_SECONDS = 120  # cap the Tesseract subprocess per page (untrusted-input safety)
 
 _INSTALL_HINT = (
-    "OCR needs pytesseract + pdf2image and the Tesseract/poppler binaries; install with: "
-    "pip install 'viparse[ocr]' plus the system packages tesseract-ocr tesseract-ocr-vie poppler"
+    "OCR needs pytesseract and the Tesseract binary; install with: "
+    "pip install 'viparse[ocr]' plus the system packages tesseract-ocr tesseract-ocr-vie"
+)
+_PDF_INSTALL_HINT = (
+    "OCR on a PDF also needs pdf2image and the poppler binary; install with: "
+    "pip install 'viparse[ocr]' plus the system packages poppler-utils tesseract-ocr-vie. "
+    "A page image (.png/.jpg/.tif) needs neither."
 )
 
 
-def _import_ocr() -> tuple[Any, Any]:
-    """Import ``pytesseract`` and ``pdf2image`` lazily, raising a clear error if missing."""
+def _import_pytesseract() -> Any:
+    """Import ``pytesseract`` lazily — the only hard requirement for OCR of an image."""
     try:
-        import pdf2image
         import pytesseract
     except ImportError as exc:
         raise MissingDependency(_INSTALL_HINT) from exc
-    return pytesseract, pdf2image
+    return pytesseract
+
+
+def _import_pdf2image() -> Any:
+    """Import ``pdf2image`` lazily. Needed for a PDF only, and reported as such.
+
+    Kept separate from pytesseract so that OCR of a page image does not demand poppler,
+    which is the harder of the two binaries to install and irrelevant when there is
+    nothing to rasterize.
+    """
+    try:
+        import pdf2image
+    except ImportError as exc:
+        raise MissingDependency(_PDF_INSTALL_HINT) from exc
+    return pdf2image
 
 
 class OcrEngine:
@@ -61,19 +96,36 @@ class OcrEngine:
     ocr = True
 
     def supports(self, content_type: str) -> bool:
-        return content_type == CONTENT_TYPE_PDF
+        return content_type == CONTENT_TYPE_PDF or content_type in IMAGE_CONTENT_TYPES
 
     def extract(self, source: Source, options: LoadOptions) -> RawExtraction:
-        pytesseract, pdf2image = _import_ocr()
-        binary_missing = (
-            pytesseract.TesseractNotFoundError,
-            pdf2image.exceptions.PDFInfoNotInstalledError,
-        )
+        pytesseract = _import_pytesseract()
+        # Re-detected rather than passed in: this engine now answers to several content
+        # types, and the result must say which one it actually read.
+        content_type = detect_format(source).content_type
+        is_image = content_type in IMAGE_CONTENT_TYPES
+
+        # Poppler is only ever missing on the PDF path, and the two binaries are named
+        # separately so the error tells the caller which one to go and install.
+        poppler_missing: tuple[type[BaseException], ...] = ()
+        pdf2image = None
+        if not is_image:
+            pdf2image = _import_pdf2image()
+            poppler_missing = (pdf2image.exceptions.PDFInfoNotInstalledError,)
+
         try:
-            images = pdf2image.convert_from_path(str(source), dpi=_DPI)
+            images = (
+                _image_pages(source)
+                if is_image
+                else pdf2image.convert_from_path(str(source), dpi=_DPI)  # type: ignore[union-attr]
+            )
             pages = [_ocr_page(pytesseract, image) for image in images]
-        except binary_missing as exc:
+        except poppler_missing as exc:
+            raise MissingDependency(_PDF_INSTALL_HINT) from exc
+        except pytesseract.TesseractNotFoundError as exc:
             raise MissingDependency(_INSTALL_HINT) from exc
+        except OSError as exc:  # Pillow raises OSError on a truncated or unreadable image
+            raise ExtractionError(f"could not read image {source!s}: {exc}") from exc
         except RuntimeError as exc:  # pytesseract raises RuntimeError on timeout / Tesseract error
             raise ExtractionError(f"OCR failed or timed out: {exc}") from exc
 
@@ -93,7 +145,7 @@ class OcrEngine:
             )
         return RawExtraction(
             source=str(source),
-            content_type=CONTENT_TYPE_PDF,
+            content_type=content_type,
             text=blocks_to_text(blocks),
             engine="ocr",
             # OCR output is Unicode with no font: no legacy-encoding question, so mark it
@@ -101,6 +153,21 @@ class OcrEngine:
             signals={"fonts": [], "blocks": blocks, "native_unicode": True},
             warnings=warnings,
         )
+
+
+def _image_pages(source: Source) -> list[Any]:
+    """Every frame of a page image, as Pillow images.
+
+    A multi-page TIFF is one file holding many scanned pages, which is exactly what a
+    digitised archive looks like; reading only the first would drop the rest in silence —
+    the failure mode this project keeps running into. Each frame is copied out of the
+    sequence because Pillow frames are views over one open file handle, and the file is
+    closed before OCR runs.
+    """
+    from PIL import Image, ImageSequence
+
+    with Image.open(str(source)) as image:
+        return [frame.copy() for frame in ImageSequence.Iterator(image)]
 
 
 def _ocr_page(pytesseract: Any, image: Any) -> tuple[str, float]:
