@@ -154,3 +154,87 @@ def test_missing_dependency_raises_clear_error(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setitem(sys.modules, "pdfplumber", None)
     with pytest.raises(MissingDependency, match=r"viparse\[pdf\]"):
         PdfEngine().extract("missing.pdf", LoadOptions())
+
+
+def _make_split_table_pdf(path: Path, *, rows: int = 60) -> Path:
+    """A table long enough that the page break lands inside it."""
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    styles = getSampleStyleSheet()
+    data = [["Name", "Age"]] + [[f"Person {i:02d}", str(20 + i)] for i in range(rows)]
+    SimpleDocTemplate(str(path)).build(
+        [
+            Paragraph("Report body paragraph one.", styles["Normal"]),
+            Spacer(1, 12),
+            Table(data, style=TableStyle([("GRID", (0, 0), (-1, -1), 1, colors.black)])),
+        ]
+    )
+    return path
+
+
+def test_a_table_split_by_a_page_break_comes_back_as_one_block(tmp_path: Path) -> None:
+    """Otherwise the continuation has no header row, and a chunk cut from it is bare data.
+
+    Rows survive either way, which is why this went unnoticed: the failure is not missing
+    text, it is text whose columns no longer have names.
+    """
+    raw = PdfEngine().extract(_make_split_table_pdf(tmp_path / "long.pdf"), LoadOptions())
+    tables = [b for b in raw.signals["blocks"] if b["type"] == "table"]
+    assert len(tables) == 1
+    assert tables[0]["rows"][0] == ["Name", "Age"]
+    assert tables[0]["rows"][-1] == ["Person 59", "79"]
+    assert len(tables[0]["rows"]) == 61  # header + 60 data rows, none lost to the join
+
+
+def test_two_tables_on_one_page_are_not_joined(tmp_path: Path) -> None:
+    # Only a table that opens a page can continue a previous one; two tables separated by
+    # prose on the same page are two tables.
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    styles = getSampleStyleSheet()
+    grid = TableStyle([("GRID", (0, 0), (-1, -1), 1, colors.black)])
+    SimpleDocTemplate(str(tmp_path / "two.pdf")).build(
+        [
+            Table([["Name", "Age"], ["An", "30"]], style=grid),
+            Spacer(1, 12),
+            Paragraph("Between the tables.", styles["Normal"]),
+            Spacer(1, 12),
+            Table([["City", "Pop"], ["Huế", "5"]], style=grid),
+        ]
+    )
+    raw = PdfEngine().extract(tmp_path / "two.pdf", LoadOptions())
+    tables = [b for b in raw.signals["blocks"] if b["type"] == "table"]
+    assert [t["rows"][0] for t in tables] == [["Name", "Age"], ["City", "Pop"]]
+
+
+def test_a_new_table_below_prose_on_a_later_page_is_not_joined(tmp_path: Path) -> None:
+    # The page after the split starts with text, so its table is a new one.
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import (
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
+    styles = getSampleStyleSheet()
+    grid = TableStyle([("GRID", (0, 0), (-1, -1), 1, colors.black)])
+    SimpleDocTemplate(str(tmp_path / "sep.pdf")).build(
+        [
+            Table([["Name", "Age"], ["An", "30"]], style=grid),
+            PageBreak(),
+            Paragraph("A heading-ish line on page two.", styles["Normal"]),
+            Spacer(1, 12),
+            Table([["City", "Pop"], ["Huế", "5"]], style=grid),
+        ]
+    )
+    raw = PdfEngine().extract(tmp_path / "sep.pdf", LoadOptions())
+    tables = [b for b in raw.signals["blocks"] if b["type"] == "table"]
+    assert len(tables) == 2

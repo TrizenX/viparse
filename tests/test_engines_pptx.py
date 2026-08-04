@@ -145,3 +145,35 @@ def test_legacy_pptx_converts_end_to_end(tmp_path: Path) -> None:
     document = viparse.load(str(source), output="text")[0]
     assert document.metadata.encoding_detected == "tcvn3"
     assert "Báo cáo tài chính" in document.text
+
+
+def test_slide_title_becomes_a_heading(tmp_path: Path) -> None:
+    """The bug the structure benchmark found: titles came out as ordinary paragraphs.
+
+    ``shape is slide.shapes.title`` never matched, because python-pptx builds a fresh
+    proxy on every access — ``slide.shapes.title is slide.shapes.title`` is itself
+    ``False``. The title was always present in the text, just never marked, so nothing
+    downstream had a section to chunk on.
+    """
+    presentation = _presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[1])
+    slide.shapes.title.text = "Tình hình kinh tế vĩ mô"
+    slide.placeholders[1].text_frame.text = "Đoạn số 01."
+
+    blocks = _extract(presentation, tmp_path, "titled.pptx").signals["blocks"]
+    headings = [b for b in blocks if b["type"] == "heading"]
+    assert [h["text"] for h in headings] == ["Tình hình kinh tế vĩ mô"]
+    assert headings[0]["level"] == 1
+    # The body is still a paragraph, not swept into the heading.
+    assert any(b["type"] == "paragraph" and b["text"] == "Đoạn số 01." for b in blocks)
+
+
+def test_only_the_title_shape_becomes_a_heading(tmp_path: Path) -> None:
+    # A second text shape on a titled slide must not be promoted just by being present.
+    presentation = _presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[1])
+    slide.shapes.title.text = "Số liệu"
+    _textbox(slide, "Ghi chú bên lề")
+
+    blocks = _extract(presentation, tmp_path, "one_title.pptx").signals["blocks"]
+    assert [b["text"] for b in blocks if b["type"] == "heading"] == ["Số liệu"]

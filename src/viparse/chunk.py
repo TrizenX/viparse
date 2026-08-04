@@ -7,7 +7,8 @@ flat text, so it can:
   heading that merely resets the section) starts a new chunk, so a chunk's ``section``
   metadata is unambiguous (it never straddles a section boundary);
 - **never split a table row** — each row is an atomic unit, and a large table is split at
-  row boundaries;
+  row boundaries, with the table's **header row repeated** at the top of every chunk that
+  continues it;
 - carry per-chunk metadata (``section`` and inherited ``page`` / ``sheet``) plus the
   chunk's ordinal :attr:`~viparse.model.Chunk.index` for downstream provenance.
 
@@ -45,6 +46,9 @@ class _Unit:
     text: str
     section: str
     is_heading: bool
+    #: For a table row that is not itself the header, that table's header row. A chunk
+    #: beginning here repeats it, so retrieved rows never arrive without their columns.
+    header: str = ""
 
 
 def chunk_document(document: NormalizedDoc, options: ChunkOptions) -> list[Chunk]:
@@ -58,7 +62,9 @@ def chunk_document(document: NormalizedDoc, options: ChunkOptions) -> list[Chunk
     count = len(units)
     while True:  # always terminates via the `end >= count` break below (count >= 1 here)
         end = start
-        tokens = 0
+        # A chunk opening mid-table will repeat that table's header, so charge it to the
+        # budget up front rather than letting the chunk quietly exceed max_tokens.
+        tokens = estimate_tokens(units[start].header)
         while end < count:
             if end > start and _crosses_section(units, start, end):
                 break  # a new section starts here — never split one across chunks
@@ -97,11 +103,34 @@ def _iter_units(blocks: list[Block]) -> Iterator[_Unit]:
             if block.text:
                 yield _Unit(text=block.text, section=section, is_heading=True)
         elif isinstance(block, Table):
+            # The first non-blank row is the header — the same assumption the Markdown
+            # renderer already makes when it writes the `| --- |` rule after row one.
+            header = ""
             for row in block.rows:
-                if any(cell.strip() for cell in row):  # skip a row whose every cell is blank
-                    yield _Unit(text="\t".join(row), section=section, is_heading=False)
+                if not any(cell.strip() for cell in row):  # skip an all-blank row
+                    continue
+                text = "\t".join(row)
+                yield _Unit(text=text, section=section, is_heading=False, header=header)
+                if not header:
+                    header = text
         elif block.text:  # Paragraph
             yield _Unit(text=block.text, section=section, is_heading=False)
+
+
+def _continued_table_header(group: list[_Unit]) -> str:
+    """The header row to repeat above ``group``, or ``""`` if none is needed.
+
+    A chunk that begins part-way through a table would otherwise open on bare data —
+    ``Tăng trưởng GDP  5,66%  6,42%`` with nothing saying which column is which. Retrieval
+    surfaces that chunk on its own, so whatever reads it has to guess.
+
+    Nothing is repeated when the header is already in the group, which happens whenever
+    the overlap reached back far enough.
+    """
+    header = group[0].header
+    if not header or any(unit.text == header for unit in group):
+        return ""
+    return header
 
 
 def _make_chunk(group: list[_Unit], index: int, document: NormalizedDoc) -> Chunk:
@@ -110,7 +139,12 @@ def _make_chunk(group: list[_Unit], index: int, document: NormalizedDoc) -> Chun
         "page": document.page,
         "sheet": document.sheet,
     }
-    return Chunk(text="\n".join(unit.text for unit in group), metadata=metadata, index=index)
+    lines = [unit.text for unit in group]
+    header = _continued_table_header(group)
+    if header:
+        lines.insert(0, header)
+        metadata["table_header_repeated"] = True
+    return Chunk(text="\n".join(lines), metadata=metadata, index=index)
 
 
 def _next_start(units: list[_Unit], start: int, end: int, options: ChunkOptions) -> int:

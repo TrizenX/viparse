@@ -6,6 +6,63 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.24] — 2026-08-04
+
+Three defects in shipped code, none of them visible in the text output, all three found
+by measuring ordinary Unicode documents for the first time (VIP-120).
+
+Every number this project published was measured on legacy-encoded files. That is the
+moat and the right thing to measure — but it is not what most callers will hand over, and
+twenty minutes of unmeasured spot-checking found three things wrong.
+
+### Fixed
+
+- **PowerPoint slide titles were never headings**, since the engine shipped in 0.1.19.
+  `shape is slide.shapes.title` never matched: python-pptx builds a fresh proxy on every
+  access, so `slide.shapes.title is slide.shapes.title` is itself `False`. The title was
+  always present and in the right place, just unmarked — so no presentation ever had a
+  section for chunking to work on. Compared by `shape_id` now.
+
+- **A table split across chunks lost its header row.** The header stayed with the
+  previous chunk and the continuation was bare data: `Tăng trưởng GDP  5,66%  6,42%`,
+  with nothing saying which quarter is which. Retrieval surfaces such a chunk on its own
+  and it looks perfectly usable. Continuations now repeat the header, flagged with
+  `table_header_repeated` in the chunk metadata, and the repeat is charged to the token
+  budget rather than quietly overflowing it.
+
+- **A table split across PDF pages lost its header too**, for a different reason: it came
+  back as two blocks and the second had no header row at all. Rejoined now, under narrow
+  conditions — the continuation must open its page, start near its top, directly follow a
+  table, and match its column count. A wrongly-joined table still contains every row; a
+  wrongly-split one loses its header, so the bias is deliberate.
+
+### Measured
+
+A [structure benchmark](https://github.com/TrizenX/viparse-corpus/tree/main/structure)
+now exists, and unlike the accuracy corpus it cannot be circular: it plants labelled
+paragraphs, headings and tables in generated documents and counts what comes back, so
+there is no transcript to agree with.
+
+| document | order | completeness | headings |
+| --- | ---: | ---: | ---: |
+| `.docx`, `.xlsx`, `.pptx` | 1.000 | 1.000 | **1.000** |
+| one-column PDF | 1.000 | 1.000 | **0.000** |
+| two-column PDF | **0.600** | 1.000 | **0.000** |
+
+The legacy corpus is unchanged at **0.978** char / **0.982** diacritic over 96 documents,
+which is the point: none of this touched conversion.
+
+### Documented rather than fixed
+
+Both remaining zeros are now stated outright in the README. A PDF has no headings, so
+every chunk from one carries an empty `section`; and a multi-column PDF is read across
+the page rather than down the columns, so paragraph 1 is followed by paragraph 19.
+
+Recovering columns means detecting them, which is layout analysis, which viparse does not
+do — the whitespace table-detection experiment took the corpus from 0.991 to 0.493 and
+was not shipped. The intended answer for multi-column PDFs is a layout-aware loader with
+`viparse.fix()` over its output.
+
 ### Added
 
 - **`README.vi.md` — the documentation in the language its users speak.** Every public
@@ -838,7 +895,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.23...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.24...HEAD
+[0.1.24]: https://github.com/TrizenX/viparse/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/TrizenX/viparse/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/TrizenX/viparse/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/TrizenX/viparse/compare/v0.1.20...v0.1.21

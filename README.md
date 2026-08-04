@@ -115,7 +115,9 @@ for docs in load_batch(paths, output="markdown", workers=8, cache=DiskCache(".vi
 ```
 
 Chunking runs on the document's block structure rather than flat text, so a chunk never straddles
-a section boundary and a table row is never split in half.
+a section boundary, a table row is never split in half, and a chunk that continues a table repeats
+its header row. On PDF there are no headings to work with — see
+[What it does not do](#what-it-does-not-do).
 
 ```python
 from viparse.integrations.langchain import to_langchain_documents
@@ -175,6 +177,38 @@ documents" is invisible to an agent that does not know the product; one containi
 
 `tests/test_mcp.py` asserts the symptoms are present, because that property is easy to
 lose in an edit that is only trying to tighten the wording.
+
+## What it does not do
+
+viparse is measured on ordinary Unicode documents too, not only on the legacy corpus —
+[the structure benchmark](https://github.com/TrizenX/viparse-corpus/tree/main/structure)
+plants labelled paragraphs, headings and tables in generated `.docx` / `.xlsx` / `.pptx` /
+PDF files and counts what comes back.
+
+| document | order | completeness | headings |
+| --- | ---: | ---: | ---: |
+| `.docx`, `.xlsx`, `.pptx` | **1.000** | 1.000 | **1.000** |
+| one-column PDF | **1.000** | 1.000 | **0.000** |
+| two-column PDF | **0.600** | 1.000 | **0.000** |
+
+Nothing is ever lost — completeness is 1.000 everywhere. Both failures are failures of
+*arrangement*, which is the harder kind to notice: the text is all there, fluent, and in
+the wrong order.
+
+**A PDF has no headings.** viparse does not infer them from font size, so every title in a
+PDF arrives as an ordinary paragraph and every chunk from a PDF carries an empty
+`section`. Section-aware chunking is real on `.docx`, `.xlsx` and `.pptx`; on PDF it is
+splitting on size.
+
+**A multi-column PDF is read across the page, not down the columns** — paragraph 1 is
+followed by paragraph 19. Recovering the columns means detecting them, which is layout
+analysis, and viparse does not do layout analysis. For multi-column PDFs use a
+layout-aware loader — **Unstructured**, **docling**, **LlamaParse** — and pass its output
+through `viparse.fix()`. That composition is the intended one: they know where the text
+is, viparse knows what the bytes mean.
+
+**Not attempted at all:** figures and images, formula recovery, reading order for
+rotated or freeform layouts, and handwriting. Scanned pages need `viparse[ocr]`.
 
 ## Architecture
 

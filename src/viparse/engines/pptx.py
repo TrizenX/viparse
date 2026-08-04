@@ -125,6 +125,28 @@ def _paragraph_block(paragraph: Any, is_title: bool) -> dict[str, Any] | None:
     return block
 
 
+def _is_title(shape: Any, slide: Any) -> bool:
+    """Whether ``shape`` is the slide's title placeholder.
+
+    By ``shape_id``, not by identity. ``python-pptx`` builds a fresh proxy object on every
+    access — ``slide.shapes.title is slide.shapes.title`` is itself ``False`` — so the
+    obvious ``shape is slide.shapes.title`` never matched, and every slide title since the
+    engine shipped came out as an ordinary paragraph rather than a heading (VIP-120).
+
+    That is invisible in the text output, which is why it survived: the title is present
+    and in the right place, just not marked. What it costs is downstream — section-aware
+    chunking has no sections to work with, so every chunk from a presentation carried an
+    empty ``section``.
+    """
+    title = getattr(slide.shapes, "title", None)
+    if title is None:
+        return False
+    try:
+        return bool(shape.shape_id == title.shape_id)
+    except AttributeError:  # a shape type that carries no id
+        return False
+
+
 def _shape_blocks(shape: Any, slide: Any, fonts: set[str]) -> list[dict[str, Any]]:
     """Blocks for one shape: a table, a text frame, or nothing."""
     blocks: list[dict[str, Any]] = []
@@ -151,8 +173,7 @@ def _shape_blocks(shape: Any, slide: Any, fonts: set[str]) -> list[dict[str, Any
     if not getattr(shape, "has_text_frame", False):
         return blocks
 
-    title = getattr(slide.shapes, "title", None)
-    is_title = title is not None and shape is title
+    is_title = _is_title(shape, slide)
     for paragraph in shape.text_frame.paragraphs:
         block = _paragraph_block(paragraph, is_title)
         if block is None:

@@ -117,7 +117,9 @@ for docs in load_batch(paths, output="markdown", workers=8, cache=DiskCache(".vi
 ```
 
 Việc chia chunk chạy trên cấu trúc khối của tài liệu chứ không trên văn bản phẳng, nên một
-chunk không bao giờ vắt qua ranh giới mục, và một dòng bảng không bao giờ bị cắt đôi.
+chunk không bao giờ vắt qua ranh giới mục, một dòng bảng không bao giờ bị cắt đôi, và
+chunk nào tiếp nối một bảng thì được lặp lại dòng tiêu đề của bảng đó. Riêng PDF thì
+không có mục nào để bám vào — xem [Những gì nó không làm](#những-gì-nó-không-làm).
 
 ### Dòng lệnh
 
@@ -193,6 +195,35 @@ câu lệnh đã công bố, khác nhau đúng một tham số.
 này, và chừng nào chưa có thì phần này không nói gì về bất kỳ ai khác. Corpus, cách đo và
 toàn bộ kết quả thô đều công khai để có thể tranh luận lại — kèm cả một bản ghi những chỗ
 mà con số này yếu hơn vẻ ngoài của nó.
+
+## Những gì nó không làm
+
+viparse cũng được đo trên tài liệu Unicode bình thường chứ không chỉ trên corpus mã cũ.
+[Benchmark cấu trúc](https://github.com/TrizenX/viparse-corpus/tree/main/structure) cắm
+các đoạn văn, tiêu đề và bảng có nhãn vào file `.docx` / `.xlsx` / `.pptx` / PDF rồi đếm
+xem lấy lại được gì.
+
+| tài liệu | thứ tự | đầy đủ | tiêu đề |
+| --- | ---: | ---: | ---: |
+| `.docx`, `.xlsx`, `.pptx` | **1.000** | 1.000 | **1.000** |
+| PDF một cột | **1.000** | 1.000 | **0.000** |
+| PDF hai cột | **0.600** | 1.000 | **0.000** |
+
+Không bao giờ mất chữ — cột "đầy đủ" bằng 1.000 ở mọi nơi. Cả hai chỗ hỏng đều là hỏng
+về **sắp xếp**, loại khó phát hiện hơn hẳn: chữ vẫn còn đủ, vẫn trôi chảy, và sai.
+
+**PDF không có tiêu đề.** viparse không suy ra tiêu đề từ cỡ chữ, nên mọi tiêu đề trong
+PDF ra thành đoạn văn thường và mọi chunk từ PDF đều có `section` rỗng. Chia chunk theo
+mục là thật với `.docx`, `.xlsx`, `.pptx`; với PDF thì đó chỉ là cắt theo kích thước.
+
+**PDF nhiều cột bị đọc ngang trang chứ không đọc dọc theo cột** — đoạn 1 rồi đến đoạn 19.
+Muốn lấy lại đúng cột thì phải dò cột, tức là phân tích bố cục, và viparse cố ý không làm
+phân tích bố cục. Với PDF nhiều cột, hãy dùng một bộ đọc hiểu bố cục — **Unstructured**,
+**docling**, **LlamaParse** — rồi đưa kết quả của nó qua `viparse.fix()`. Đó mới là cách
+ghép đúng ý đồ: họ biết chữ nằm ở đâu, viparse biết những byte đó nghĩa là gì.
+
+**Hoàn toàn không đụng tới:** hình ảnh và biểu đồ, công thức, thứ tự đọc của bố cục xoay
+hoặc tự do, và chữ viết tay. Trang scan cần `viparse[ocr]`.
 
 ## Nguyên tắc thiết kế
 

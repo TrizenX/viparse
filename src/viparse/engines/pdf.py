@@ -57,6 +57,7 @@ class PdfEngine:
                 page_blocks, page_fonts = _page_blocks(page)
                 blocks.extend(page_blocks)
                 fonts.update(page_fonts)
+        blocks = _join_tables_across_pages(blocks)
         # Record the page on metadata only for a single-page document; multi-page
         # provenance belongs with per-block/per-chunk metadata (later).
         page_number = 1 if page_count == 1 else None
@@ -68,6 +69,14 @@ class PdfEngine:
             page=page_number,
             signals={"fonts": sorted(fonts), "blocks": blocks},
         )
+
+
+#: A table starting within this fraction of the page height counts as "at the top",
+#: which is one of the conditions for treating it as continuing the previous page's.
+_PAGE_TOP_FRACTION = 0.15
+
+#: Transient marker on a table block, consumed by `_join_tables_across_pages`.
+_CONTINUES = "_continues_previous_page"
 
 
 def _page_blocks(page: Any) -> tuple[list[dict[str, Any]], set[str]]:
@@ -84,12 +93,57 @@ def _page_blocks(page: Any) -> tuple[list[dict[str, Any]], set[str]]:
     blocks: list[dict[str, Any]] = []
     cursor = 0.0
     for table in tables:
-        _top, bottom = table.bbox[1], table.bbox[3]
-        _append_band(page, cursor, _top, blocks)
-        blocks.append({"type": "table", "rows": _table_rows(table)})
+        top, bottom = table.bbox[1], table.bbox[3]
+        _append_band(page, cursor, top, blocks)
+        table_block: dict[str, Any] = {"type": "table", "rows": _table_rows(table)}
+        if not blocks and top <= page.height * _PAGE_TOP_FRACTION:
+            # First thing on the page and near its top: a candidate continuation of a
+            # table left open on the previous page. Confirmed (or not) in
+            # `_join_tables_across_pages`, which is the only reader of this key.
+            table_block[_CONTINUES] = True
+        blocks.append(table_block)
         cursor = bottom
     _append_band(page, cursor, page.height, blocks)
     return blocks, fonts
+
+
+def _join_tables_across_pages(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Rejoin a table that a page break split in two.
+
+    A table running past the bottom of a page comes back as two table blocks, and the
+    second one has **no header row** — so a chunk cut from it is bare data, columns
+    unnamed, and retrieval surfaces it looking perfectly usable (VIP-120).
+
+    The join is deliberately narrow, because the alternative is guessing: the second table
+    must be the first thing on its page, start near the top of it, follow a table
+    directly, and have the same column count. Two unrelated tables that happen to meet at
+    a page boundary with matching columns would still be merged — that is the known false
+    positive, and it is preferred to the alternative, since a wrongly-joined table still
+    contains every row while a wrongly-split one loses its header.
+
+    This stitches a table back together. It does not analyse layout, and nothing here
+    tries to work out where columns are — see the structure benchmark for what viparse
+    does and does not recover from a PDF.
+    """
+    joined: list[dict[str, Any]] = []
+    for block in blocks:
+        continues = bool(block.pop(_CONTINUES, False))
+        previous = joined[-1] if joined else None
+        if (
+            continues
+            and previous is not None
+            and previous.get("type") == "table"
+            and _column_count(previous) == _column_count(block)
+        ):
+            previous["rows"].extend(block["rows"])
+            continue
+        joined.append(block)
+    return joined
+
+
+def _column_count(table: dict[str, Any]) -> int:
+    rows: list[list[str]] = table.get("rows") or []
+    return len(rows[0]) if rows else 0
 
 
 def _append_band(page: Any, top: float, bottom: float, blocks: list[dict[str, Any]]) -> None:

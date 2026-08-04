@@ -107,8 +107,57 @@ def test_table_row_is_never_split_even_when_over_budget() -> None:
 def test_large_table_splits_at_row_boundaries() -> None:
     rows = [["a", "b"], ["c", "d"], ["e", "f"]]
     chunks = chunk_document(_doc(blocks=[Table(rows=rows)]), ChunkOptions(max_tokens=2))
-    # Each row is 2 words == the budget, so every chunk is exactly one whole row.
-    assert [c.text for c in chunks] == ["a\tb", "c\td", "e\tf"]
+    # Each row is 2 words == the budget, so every chunk is exactly one whole row — and
+    # every chunk after the first repeats the header, so no chunk is bare data.
+    assert [c.text for c in chunks] == ["a\tb", "a\tb\nc\td", "a\tb\ne\tf"]
+
+
+def test_continued_table_chunk_repeats_the_header() -> None:
+    """The failure this exists for: a retrieved chunk of numbers with no column names.
+
+    Without the repeat, the second chunk is `Tăng trưởng GDP  5,66%  6,42%` and nothing
+    in it says which quarter is which — retrieval surfaces a chunk on its own, so
+    whatever reads it has to guess.
+    """
+    rows = [
+        ["Chỉ tiêu", "Quý I", "Quý II"],
+        ["Tăng trưởng GDP", "5,66%", "6,42%"],
+        ["Lạm phát", "3,77%", "3,54%"],
+    ]
+    chunks = chunk_document(_doc(blocks=[Table(rows=rows)]), ChunkOptions(max_tokens=4))
+    assert len(chunks) > 1
+    header = "Chỉ tiêu\tQuý I\tQuý II"
+    assert all(chunk.text.startswith(header) for chunk in chunks)
+    # Only the continuations are flagged; the first chunk owns the header outright.
+    assert [c.metadata.get("table_header_repeated") for c in chunks] == [
+        None,
+        *[True] * (len(chunks) - 1),
+    ]
+
+
+def test_header_is_not_repeated_when_the_overlap_already_carried_it() -> None:
+    # Overlap large enough to reach back over the header — repeating it too would put
+    # the same row in the chunk twice.
+    rows = [["h1", "h2"], ["a", "b"], ["c", "d"]]
+    chunks = chunk_document(
+        _doc(blocks=[Table(rows=rows)]), ChunkOptions(max_tokens=4, overlap_tokens=4)
+    )
+    for chunk in chunks:
+        assert chunk.text.count("h1\th2") == 1
+
+
+def test_repeated_header_is_charged_to_the_token_budget() -> None:
+    # Budget 4, header 2 tokens: a continuation may only take one more 2-token row,
+    # rather than filling to 4 and then silently exceeding it with the header on top.
+    rows = [["h1", "h2"], ["a", "b"], ["c", "d"], ["e", "f"]]
+    chunks = chunk_document(_doc(blocks=[Table(rows=rows)]), ChunkOptions(max_tokens=4))
+    assert all(estimate_tokens(chunk.text) <= 4 for chunk in chunks)
+
+
+def test_a_single_row_table_needs_no_repeat() -> None:
+    chunks = chunk_document(_doc(blocks=[Table(rows=[["only", "row"]])]), ChunkOptions())
+    assert [c.text for c in chunks] == ["only\trow"]
+    assert "table_header_repeated" not in chunks[0].metadata
 
 
 def test_overlap_repeats_trailing_units() -> None:
