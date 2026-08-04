@@ -63,6 +63,10 @@ _ALIEN_RATE_CEILING = 0.05
 _LONG_WORD_LETTERS = 7
 _LONG_WORD_RATE_CEILING = 0.04  # 5x the worst real document, under half the nearest false positive
 _WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
+#: ``EncodingDetection.method`` when the text converted well and then read as another
+#: language. Distinct from ``"assumed-unicode"``, which means the evidence was thin.
+NOT_VIETNAMESE = "content-not-vietnamese"
+
 _CONTENT_BASE_CONFIDENCE = 0.5
 _CONTENT_MAX_CONFIDENCE = 0.85  # content evidence never reaches font-signal certainty
 
@@ -151,10 +155,12 @@ def detect_encoding_by_content(text: str, candidates: Mapping[str, Charmap]) -> 
         # a wrong conversion (the moat's "never corrupt good text" rule).
         return EncodingDetection(None, _ASSUMED_CONFIDENCE, "assumed-unicode")
     if not _reads_as_vietnamese(converted[best_name]):
-        # The conversion scored well but does not look like Vietnamese: the input was
-        # some other diacritic-heavy Latin language, and converting it would corrupt
-        # correct text — the moat's cardinal sin.
-        return EncodingDetection(None, _ASSUMED_CONFIDENCE, "assumed-unicode")
+        # The conversion scored well and then failed the Vietnamese check. That is a
+        # *positive* finding — the input is some other diacritic-heavy Latin language —
+        # and it is reported separately from "not enough to tell", because a caller can
+        # act on the two differently. A block that declined for want of evidence should
+        # take its neighbour's verdict; a block that is actively Spanish should not.
+        return EncodingDetection(None, _ASSUMED_CONFIDENCE, NOT_VIETNAMESE)
     confidence = min(_CONTENT_MAX_CONFIDENCE, _CONTENT_BASE_CONFIDENCE + best_gain)
     return EncodingDetection(best_name, confidence, "content-frequency")
 
