@@ -6,6 +6,47 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.23] — 2026-08-04
+
+### Added
+
+- **`viparse.fix(text)` — the normalization pass, as an API.** The README has always
+  said viparse can be used *"as a normalization pass over text another loader
+  produced"*. The API did not offer one. Reaching it meant constructing a
+  `RawExtraction` and a `LoadOptions` and calling `VietnameseNormalizer` directly, and
+  four places in this project did exactly that: the MCP server, the agent skill, the
+  landing page's TypeScript port, and `api.py` itself (VIP-117).
+
+  ```python
+  docs = [viparse.fix(doc.page_content) for doc in loader.load()]
+  ```
+
+- **`viparse.detect_text_encoding(text)`**, for callers who want to look before
+  converting. Returns an encoding name, or `None` when none was found.
+
+  `encoding` defaults to `"auto"` in `fix()`, unlike `load()`, where content detection
+  is opt-in because a caller handing over a *file* may not know what is in it. Someone
+  calling a function named `fix` on a string they are looking at has already made that
+  assertion.
+
+### Changed
+
+- The MCP server and the agent skill now use the new API; the skill's example goes from
+  eleven lines to one.
+- `identify_vietnamese_encoding` no longer returns `confidence`. Content-detection
+  confidence is a scaled margin; what a caller can act on is whether an encoding was
+  named at all.
+- The README's accuracy section said a published benchmark was "planned for v0.2". It
+  exists — 108 documents, five formats, **0.983** against a **0.019** baseline. It now
+  states that, and says plainly that no other tool has been run against the corpus, so
+  it is not a comparison.
+
+### Measured
+
+No conversion behaviour changed: `fix()` runs the same normalizer over the same tables,
+so the corpus stands at **0.978** char, **0.983** diacritic. This release adds a way to
+reach existing behaviour, and the number saying so is the point.
+
 ## [0.1.22] — 2026-08-04
 
 ### Fixed
@@ -774,7 +815,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.22...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.23...HEAD
+[0.1.23]: https://github.com/TrizenX/viparse/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/TrizenX/viparse/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/TrizenX/viparse/compare/v0.1.20...v0.1.21
 [0.1.20]: https://github.com/TrizenX/viparse/compare/v0.1.19...v0.1.20
