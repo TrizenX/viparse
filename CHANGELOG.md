@@ -24,6 +24,16 @@ All notable changes to viparse are documented here. The format is based on
   independently and should almost never need releasing: a release means the loader's
   signature changed, which is worth noticing rather than automating.
 
+  Both are live on PyPI at 0.1.0 and verified by installing from PyPI into an empty
+  environment, not from the local build.
+
+  **A note for whoever registers the next one.** PyPI refuses a second *pending* trusted
+  publisher with the same (owner, repository, workflow, environment) — while no project
+  exists yet, an OIDC token from that workflow would be ambiguous about which name it is
+  claiming. The fix is not to differentiate the workflow: publish the first package, at
+  which point its pending publisher becomes a real one bound to the created project and
+  the pending slot is free. The second then registers with the identical configuration.
+
 ## [0.1.29] — 2026-08-05
 
 ### Added
