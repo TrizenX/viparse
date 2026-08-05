@@ -162,8 +162,19 @@ from viparse.integrations import to_langchain_documents, to_llamaindex_documents
 ### Dòng lệnh
 
 ```bash
-viparse ./docs/**/*.pdf -o md
+viparse scan ./docs   # mình có dính vấn đề này không? không chuyển gì cả
+viparse ./docs -o md  # chuyển
 viparse doctor        # liệt kê engine khả dụng theo extras đã cài
+```
+
+`scan` là lệnh nên chạy đầu tiên. Nó báo file nào đang dùng bảng mã cũ, file nào cần OCR,
+**không ghi gì**, và trả mã thoát `1` khi tìm thấy để ghép được vào script kiểm tra:
+
+```
+312 file(s)
+    47  legacy encoding   tcvn3 41 · vni 6
+    12  needs OCR         no text layer; install viparse[ocr]
+   253  already Unicode
 ```
 
 ## Dùng từ AI agent
