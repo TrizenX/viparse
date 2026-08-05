@@ -151,8 +151,23 @@ from viparse.integrations import to_langchain_documents, to_llamaindex_documents
 ```
 
 ```bash
-viparse ./docs/**/*.pdf -o md
+viparse scan ./docs   # do I even have this problem? converts nothing
+viparse ./docs -o md  # convert
 viparse doctor        # list available engines per installed extras
+```
+
+`scan` is the one to run first. It reports which files carry a legacy encoding and which
+need OCR, writes nothing, and exits `1` when it finds something so it composes into a
+shell check:
+
+```
+312 file(s)
+    47  legacy encoding   tcvn3 41 · vni 6
+    12  needs OCR         no text layer; install viparse[ocr]
+   253  already Unicode
+
+Those 47 file(s) reach a vector database as mojibake — `B¸o c¸o tµi chÝnh` rather than
+`Báo cáo tài chính`. Nothing errors and nothing is empty, so this does not show up in a log.
 ```
 
 ## Using it from an agent

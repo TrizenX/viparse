@@ -41,6 +41,30 @@ CONTENT_TYPE_JPEG = "image/jpeg"
 CONTENT_TYPE_TIFF = "image/tiff"
 IMAGE_CONTENT_TYPES = frozenset({CONTENT_TYPE_PNG, CONTENT_TYPE_JPEG, CONTENT_TYPE_TIFF})
 
+#: Suffixes a directory walk collects. This is a **filter, not a detector** — the format
+#: is still decided by magic bytes, and a file whose extension lies is classified
+#: correctly. It exists only so that walking a source tree does not hand every `.txt`,
+#: `.zip` and `.png` icon to the router and report them as unreadable.
+#:
+#: Kept beside the content types on purpose. It lived in `cli.py` as `("*.docx",)` from
+#: before any other engine existed, which meant `viparse ./docs` silently skipped every
+#: `.doc`, `.pdf`, `.xls`, `.rtf` and `.ppt` in the tree and reported success (VIP-128).
+SUPPORTED_SUFFIXES = (
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".pdf",
+    ".rtf",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tif",
+    ".tiff",
+)
+
 # --- Magic signatures -----------------------------------------------------
 _ZIP_MAGIC = b"PK\x03\x04"
 _PDF_MAGIC = b"%PDF-"

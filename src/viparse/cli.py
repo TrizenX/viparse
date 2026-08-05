@@ -21,6 +21,10 @@ from typing import get_args
 from viparse import __version__
 from viparse.api import _build_pipeline, _default_engines, _resolve_options
 from viparse.config import UNSET
+
+# Directory expansion filters on SUPPORTED_SUFFIXES, which lives beside the format
+# knowledge in detect.py rather than being restated here.
+from viparse.detect import SUPPORTED_SUFFIXES
 from viparse.errors import ConfigError, ViparseError
 from viparse.options import NormalizeForm, OutputFormat
 
@@ -34,8 +38,6 @@ _OUTPUT_ALIASES: dict[str, OutputFormat] = {
 }
 _OUTPUT_SUFFIX: dict[OutputFormat, str] = {"markdown": ".md", "text": ".txt", "json": ".json"}
 _NORMALIZE_FORMS: tuple[NormalizeForm, ...] = get_args(NormalizeForm)  # from the type alias
-# Extensions the built-in engines handle today; used to expand directory arguments.
-_SUPPORTED_SUFFIXES = ("*.docx",)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -46,6 +48,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args == ["doctor"]:
         sys.stdout.write(_doctor() + "\n")
         return 0
+
+    # `scan` takes paths, so unlike `doctor` it cannot be matched on being the only
+    # argument. Matched on the first token instead, and only when a file of that name
+    # does not exist — so `viparse scan` still parses a real ./scan if you have one.
+    if args and args[0] == "scan" and not Path("scan").exists():
+        return _scan(args[1:])
 
     ns = _build_parser().parse_args(args)
 
@@ -111,11 +119,48 @@ def _unique_dest(out_dir: Path, stem: str, suffix: str, used: set[Path]) -> Path
     return candidate
 
 
+def _scan(args: Sequence[str]) -> int:
+    """`viparse scan` — survey files without converting or writing any of them."""
+    from viparse.scan import format_report, scan
+
+    parser = argparse.ArgumentParser(
+        prog="viparse scan",
+        description=(
+            "Report which files carry a legacy Vietnamese encoding and which need OCR. "
+            "Converts nothing and writes nothing."
+        ),
+    )
+    parser.add_argument("paths", nargs="+", help="files, directories, or globs to survey")
+    parser.add_argument(
+        "--list",
+        type=int,
+        nargs="?",
+        const=20,
+        default=0,
+        metavar="N",
+        help="also list the affected files (default 20 when given without a number)",
+    )
+    ns = parser.parse_args(list(args))
+
+    paths = _resolve_paths(ns.paths)
+    if not paths:
+        sys.stderr.write("viparse: no input files matched\n")
+        return 1
+
+    report = scan(paths)
+    sys.stdout.write(format_report(report, show_files=ns.list) + "\n")
+    # Exit 1 when something was found, so the command composes into a shell check. Not an
+    # error: finding legacy files is the command working, which is why the message says so
+    # rather than leaving the exit code to speak.
+    return 1 if report.legacy else 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the file-processing mode."""
     parser = argparse.ArgumentParser(
         prog="viparse",
         description="Parse Vietnamese documents into clean Unicode-NFC markdown/text/json.",
+        epilog="viparse scan PATH   survey files for legacy encodings, converting nothing",
     )
     parser.add_argument("paths", nargs="+", help="files, directories, or globs to parse")
     parser.add_argument(
@@ -169,10 +214,10 @@ def _expand(pattern: str) -> list[Path]:
     """
     path = Path(pattern)
     if path.is_dir():
-        found: list[Path] = []
-        for suffix in _SUPPORTED_SUFFIXES:
-            found.extend(sorted(path.rglob(suffix)))
-        return found
+        # Case-insensitive: scanners and archives routinely write `.PDF` and `.TIF`, and
+        # a suffix filter that misses them is a scan that quietly covers less than it says.
+        wanted = set(SUPPORTED_SUFFIXES)
+        return sorted(p for p in path.rglob("*") if p.is_file() and p.suffix.lower() in wanted)
     if path.exists():
         return [path]
     if any(ch in pattern for ch in "*?["):

@@ -6,6 +6,48 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.30] — 2026-08-05
+
+### Added
+
+- **`viparse scan`** — survey a directory without converting or writing anything
+  (VIP-128):
+
+  ```
+  312 file(s)
+      47  legacy encoding   tcvn3 41 · vni 6
+      12  needs OCR         no text layer; install viparse[ocr]
+     253  already Unicode
+  ```
+
+  It answers the question that comes *before* conversion, and the one nobody had a way to
+  ask: **do I even have this problem?** Until now the answer cost an install, a script,
+  and knowing to print the first two hundred characters and look at them — a lot to ask of
+  someone who does not yet believe anything is wrong, which is the entire audience, since
+  this failure does not raise, does not return empty and does not shorten the text.
+
+  More to the point, the number it prints is *the reader's own*. "47 of your 312 files" is
+  an argument; "0.019 on our corpus" is a claim about us.
+
+  Exits `1` when it finds something, so it composes into a shell check. Never truncates a
+  file list without saying how many it dropped.
+
+### Fixed
+
+- **`viparse ./a-directory` only ever looked at `.docx`.** Directory expansion filtered on
+  `("*.docx",)`, written before any other engine existed, so every `.doc`, `.pdf`, `.xls`,
+  `.rtf` and `.ppt` in a tree was skipped **and the command reported success**.
+
+  The suffix list now lives beside the format constants in `detect.py`, covers every
+  format the engines handle including page images, and is matched case-insensitively —
+  scanners and archives write `.PDF` and `.TIF`, and a filter that misses those covers
+  less than it says it does.
+
+  This is the fourth silent-narrowing defect found this week, after a scorer that skipped
+  a document the generator never wrote, a screener that globbed `*.pdf` and missed
+  `.PDF`, and a commit query bounded by page count instead of by date. All four produced a
+  clean-looking report over a smaller set than anyone thought.
+
 ### Added
 
 - **`viparse-langchain` and `viparse-llamaindex`** — two thin distributions under
@@ -1127,7 +1169,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.29...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.30...HEAD
+[0.1.30]: https://github.com/TrizenX/viparse/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/TrizenX/viparse/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/TrizenX/viparse/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/TrizenX/viparse/compare/v0.1.26...v0.1.27
