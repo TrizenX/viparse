@@ -121,3 +121,22 @@ def test_cli_scan_exits_1_when_legacy_files_are_found(tmp_path: Path, capsys) ->
 def test_cli_scan_exits_0_when_nothing_is_found(tmp_path: Path) -> None:
     _docx(tmp_path / "moi.docx", "Báo cáo tài chính")
     assert main(["scan", str(tmp_path)]) == 0
+
+
+def test_missing_extra_is_named_not_just_the_exception(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
+    """The survey must say what to install.
+
+    Whoever runs a scan is by definition whoever does not yet know what they need.
+    Reporting "MissingDependency" and stopping would be a command whose only job is to
+    inform, declining to.
+    """
+    import sys
+
+    pdf = tmp_path / "a.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setitem(sys.modules, "pdfplumber", None)  # simulate viparse[pdf] absent
+
+    report = scan([pdf])
+    assert report.unreadable
+    assert report.unreadable[0].missing_extra == "pdf"
+    assert "pip install 'viparse[pdf]'" in format_report(report)

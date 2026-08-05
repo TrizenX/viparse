@@ -25,12 +25,13 @@ than no survey, because it would send someone to look for a bug that is in the s
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from viparse.detect import IMAGE_CONTENT_TYPES, detect_format
-from viparse.errors import ViparseError
+from viparse.errors import MissingDependency, ViparseError
 
 #: Content types that only OCR can read, so "needs OCR" is a property of the file rather
 #: than a guess about it.
@@ -50,6 +51,9 @@ class FileReport:
     #: Populated when the file could not be read at all; the file is then counted as
     #: unreadable rather than silently as clean.
     error: str | None = None
+    #: The extra that would make this file readable, when that is the whole problem.
+    #: ``"pdf"``, ``"rtf"``, ``"office"``, ``"ocr"`` — the word that goes in the brackets.
+    missing_extra: str | None = None
 
 
 @dataclass(slots=True)
@@ -96,6 +100,17 @@ def scan_file(path: Path) -> FileReport:
     needs_ocr = detected.content_type in _OCR_ONLY
     try:
         documents = load(str(path), encoding="auto")
+    except MissingDependency as exc:
+        # Naming the extra matters more here than anywhere else in the library. The person
+        # running a survey is by definition the person who does not yet know what they
+        # need; telling them "MissingDependency" and stopping would be a command whose
+        # only job is to inform, declining to.
+        return FileReport(
+            path,
+            needs_ocr=needs_ocr,
+            error=type(exc).__name__,
+            missing_extra=_extra_for(detected.content_type) or _extra_from_message(str(exc)),
+        )
     except ViparseError as exc:
         # A file that cannot be read is reported as such. Counting it as clean would be
         # the one dishonest outcome available here.
@@ -107,6 +122,33 @@ def scan_file(path: Path) -> FileReport:
     if not needs_ocr and documents and not documents[0].text.strip():
         needs_ocr = True
     return FileReport(path, encoding=encoding, needs_ocr=needs_ocr)
+
+
+def _extra_for(content_type: str) -> str | None:
+    """The extra whose engine claims ``content_type``, asked of the registry itself.
+
+    Read from the engines rather than from a table here, so a new engine cannot arrive
+    with its extra unmentioned by the one command that exists to tell people what to
+    install.
+    """
+    from viparse.api import _default_engines
+
+    for engine in _default_engines():
+        if engine.supports(content_type):
+            extra = getattr(engine, "extra", None)
+            if extra:
+                return str(extra)
+    return None
+
+
+def _extra_from_message(message: str) -> str | None:
+    """Fallback: pull ``viparse[x]`` out of the error text.
+
+    The engines already write the install hint into their own messages; this reads it back
+    rather than duplicating the mapping, and only runs when the registry could not answer.
+    """
+    match = re.search(r"viparse\[([a-z]+)\]", message)
+    return match.group(1) if match else None
 
 
 def scan(paths: list[Path]) -> ScanReport:
@@ -134,9 +176,17 @@ def format_report(report: ScanReport, *, show_files: int = 0) -> str:
     if ocr:
         lines.append(f"  {len(ocr):>4}  needs OCR         no text layer; install viparse[ocr]")
     if report.unreadable:
-        kinds = Counter(f.error for f in report.unreadable)
-        detail = " · ".join(f"{k} {v}" for k, v in kinds.most_common())
-        lines.append(f"  {len(report.unreadable):>4}  unreadable        {detail}")
+        missing = Counter(f.missing_extra for f in report.unreadable if f.missing_extra)
+        if missing:
+            detail = " · ".join(
+                f"pip install 'viparse[{x}]' ({n})" for x, n in missing.most_common()
+            )
+            label = "missing extras"
+        else:
+            kinds = Counter(f.error for f in report.unreadable)
+            detail = " · ".join(f"{k} {v}" for k, v in kinds.most_common())
+            label = "unreadable"
+        lines.append(f"  {len(report.unreadable):>4}  {label:<16}  {detail}")
     lines.append(f"  {len(report.clean):>4}  already Unicode")
 
     if legacy:

@@ -6,6 +6,27 @@ All notable changes to viparse are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.31] — 2026-08-05
+
+### Fixed
+
+- **`viparse scan` now names the extra it needs** instead of reporting
+  `MissingDependency` and stopping (VIP-129). Found by running 0.1.30 from PyPI against
+  the corpus with only `viparse[office]` installed — the realistic case, and the one the
+  local dev environment hides because it has everything:
+
+  ```
+      16  unreadable        MissingDependency 16          ← 0.1.30
+      16  missing extras    pip install 'viparse[rtf]' (11) · pip install 'viparse[pdf]' (5)
+  ```
+
+  Whoever runs a survey is by definition whoever does not yet know what they need. A
+  command whose only job is to inform, declining to, is the worst version of itself.
+
+  The extra is read from the engine registry rather than a table in `scan.py`, so a new
+  engine cannot arrive with its extra unmentioned by the one command that exists to tell
+  people what to install; the error message is parsed only as a fallback.
+
 ## [0.1.30] — 2026-08-05
 
 ### Added
@@ -1169,7 +1190,8 @@ First tagged release. Covers the full M0–M5 feature set (VIP-1 … VIP-59).
 - **Parallel batch** — `load_batch(..., workers=N)` with bounded concurrency and per-source
   error isolation.
 
-[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.30...HEAD
+[Unreleased]: https://github.com/TrizenX/viparse/compare/v0.1.31...HEAD
+[0.1.31]: https://github.com/TrizenX/viparse/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/TrizenX/viparse/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/TrizenX/viparse/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/TrizenX/viparse/compare/v0.1.27...v0.1.28
