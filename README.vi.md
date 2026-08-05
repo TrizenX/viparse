@@ -71,14 +71,26 @@ pip install "viparse[office]"      # .docx/.xlsx/.pptx và .doc/.xls/.ppt đời
 pip install "viparse[pdf]"         # PDF số hoá
 pip install "viparse[rtf]"         # RTF
 pip install "viparse[ocr]"         # PDF scan và file ảnh (cần cài Tesseract)
-pip install "viparse[langchain]"   # adapter LangChain
-pip install "viparse[llamaindex]"  # adapter LlamaIndex
+pip install "viparse[langchain]"   # loader cho LangChain
+pip install "viparse[llamaindex]"  # reader cho LlamaIndex
 pip install "viparse[mcp]"         # MCP server, cho AI agent
 pip install "viparse[all]"         # mọi engine và adapter
 ```
 
 `mcp` cố ý **không** nằm trong `all`: `all` nói về khả năng đọc file, và việc cài đủ bộ đọc
 không nên kéo theo một server runtime.
+
+Hai phần tích hợp framework cũng được xuất bản dưới tên riêng, dành cho người đang tìm từ
+phía bên kia chứ không phải từ phía này:
+
+```bash
+pip install viparse-langchain      # vẫn là VietnameseDocumentLoader
+pip install viparse-llamaindex     # vẫn là ViparseReader
+```
+
+Chúng không chứa dòng code nào của riêng mình. Cả hai framework đều đã ngừng nhận tích hợp
+của bên thứ ba vào repo của họ, nên một gói mà **cái tên** có chữ LangChain hoặc LlamaIndex
+là cách duy nhất còn lại để xuất hiện ở chỗ những người đó tìm.
 
 Chạy `viparse doctor` để xem những engine nào đang bật với các extra bạn đã cài.
 
@@ -131,8 +143,9 @@ documents = ViparseReader().load_data("bao_cao_cu.doc")
 ```
 
 Có sẵn trong `viparse[langchain]` / `viparse[llamaindex]`, hoặc cài riêng bằng
-`pip install viparse-langchain` / `viparse-llamaindex` — cùng một lớp, dưới cái tên mà
-người dùng framework tìm ra được.
+[`viparse-langchain`](https://pypi.org/project/viparse-langchain/) /
+[`viparse-llamaindex`](https://pypi.org/project/viparse-llamaindex/) — cùng một lớp, dưới
+cái tên mà người dùng framework tìm ra được.
 
 Đây là loader hạng nhất theo đúng hình dạng mà pipeline của hai framework được viết
 quanh, chứ không phải hàm chuyển đổi gọi sau. Khác biệt đó quan trọng hơn vẻ ngoài: một

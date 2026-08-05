@@ -80,14 +80,26 @@ pip install "viparse[office]"      # .docx / .xlsx / .pptx and legacy .doc / .xl
 pip install "viparse[pdf]"         # digital PDFs
 pip install "viparse[rtf]"         # RTF
 pip install "viparse[ocr]"         # scanned PDFs and page images (needs Tesseract)
-pip install "viparse[langchain]"   # LangChain document adapter
-pip install "viparse[llamaindex]"  # LlamaIndex document adapter
+pip install "viparse[langchain]"   # LangChain document loader
+pip install "viparse[llamaindex]"  # LlamaIndex reader
 pip install "viparse[mcp]"         # MCP server, for agents
 pip install "viparse[all]"         # every engine and adapter
 ```
 
 `mcp` is deliberately **not** in `all`: `all` is about parsing capability, and installing
 every format handler should not start pulling in a server runtime.
+
+The two framework integrations are also published under their own names, for people who
+are looking from that side rather than this one:
+
+```bash
+pip install viparse-langchain      # same VietnameseDocumentLoader
+pip install viparse-llamaindex     # same ViparseReader
+```
+
+They contain no code of their own — both frameworks stopped accepting third-party
+integrations into their repositories, so a package whose *name* says LangChain or
+LlamaIndex is the only remaining way to appear where those users look.
 
 Run `viparse doctor` to see which engines your installed extras enable.
 
@@ -121,8 +133,8 @@ its header row. On PDF there are no headings to work with — see
 
 Drop it into an existing LangChain or LlamaIndex pipeline as a first-class loader — from
 `viparse[langchain]` / `viparse[llamaindex]`, or from the standalone
-[`viparse-langchain`](packages/viparse-langchain) / [`viparse-llamaindex`](packages/viparse-llamaindex)
-packages, which are the same classes under a name a framework user can find:
+[`viparse-langchain`](https://pypi.org/project/viparse-langchain/) /
+[`viparse-llamaindex`](https://pypi.org/project/viparse-llamaindex/) packages:
 
 ```python
 from viparse.integrations import VietnameseDocumentLoader, ViparseReader
