@@ -52,7 +52,7 @@ all = ["viparse[office,pdf,rtf,ocr,langchain,llamaindex]"]
 # raises these weekly, so the upgrade and the fixes it needs land in one reviewed PR.
 dev = [
     "ruff>=0.16,<0.17",
-    "mypy>=2.3,<2.4",
+    "mypy>=2.3,<2.5",
     "pytest",
     "pytest-cov",
     "build",
