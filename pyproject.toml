@@ -51,8 +51,8 @@ all = ["viparse[office,pdf,rtf,ocr,langchain,llamaindex]"]
 # release, not the major — hence a tighter cap than the runtime extras above. Dependabot
 # raises these weekly, so the upgrade and the fixes it needs land in one reviewed PR.
 dev = [
-    "ruff>=0.16,<0.17",
-    "mypy>=2.3,<2.4",
+    "ruff>=0.16,<0.18",
+    "mypy>=2.3,<2.5",
     "pytest",
     "pytest-cov",
     "build",
