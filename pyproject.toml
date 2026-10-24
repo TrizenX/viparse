@@ -37,7 +37,7 @@ dependencies = []
 office = ["python-docx>=1.1,<2", "openpyxl>=3.1,<4", "python-pptx>=1,<2", "olefile>=0.47,<1"]
 pdf = ["pdfplumber>=0.11,<0.12"]
 rtf = ["striprtf>=0.0.29,<0.1"]
-ocr = ["pytesseract>=0.3,<0.4", "pdf2image>=1.17,<2", "pillow>=10,<13"]
+ocr = ["pytesseract>=0.3,<0.4", "pdf2image>=1.17,<2", "pillow>=10,<14"]
 langchain = ["langchain-core>=0.3,<2"]
 llamaindex = ["llama-index-core>=0.11,<1"]
 # Not in `all`: `all` is for parsing capability, and the MCP server is a delivery
@@ -51,8 +51,8 @@ all = ["viparse[office,pdf,rtf,ocr,langchain,llamaindex]"]
 # release, not the major — hence a tighter cap than the runtime extras above. Dependabot
 # raises these weekly, so the upgrade and the fixes it needs land in one reviewed PR.
 dev = [
-    "ruff>=0.16,<0.17",
-    "mypy>=2.3,<2.4",
+    "ruff>=0.16,<0.18",
+    "mypy>=2.3,<2.5",
     "pytest",
     "pytest-cov",
     "build",
